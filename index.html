@@ -55,6 +55,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
 .view{display:none}.view.active{display:block}
 .quickrow{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
 .note{font-size:11px;color:var(--muted);margin-top:8px}
+.locked{background:var(--pink);color:white}
 .empty{text-align:center;color:var(--muted);padding:18px 8px;font-size:13px}
 @media(max-width:700px){
   .stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.games{grid-template-columns:1fr}
@@ -69,7 +70,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 3</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 4</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -86,17 +87,26 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
     <div class="card">
       <h2>⚡ Fast Claim Entry</h2>
       <div class="grid">
-        <div><label>Buyer</label><input id="buyerName" list="buyerNames" placeholder="Start typing name"></div>
+        <div>
+  <label>Buyer</label>
+  <select id="buyerName">
+    <option value="">Choose buyer...</option>
+  </select>
+</div>
         <div><label>Item Code</label><input id="itemCode" placeholder="P12"></div>
         <div><label>Price</label><input id="itemPrice" type="number" inputmode="decimal" step=".01" placeholder="10"></div>
         <div><label>Qty</label><input id="itemQty" type="number" inputmode="numeric" min="1" value="1"></div>
       </div>
-      <datalist id="buyerNames"></datalist>
       <div class="actions">
         <button class="primary" onclick="addClaim()">ADD CLAIM</button>
-        <button class="light" onclick="repeatLast()">REPEAT LAST BUYER</button>
+        <button class="light" onclick="clearBuyer()">CLEAR BUYER</button>
+        <button class="light" onclick="toggleItemLock()" id="itemLockBtn">🔓 KEEP ITEM OFF</button>
       </div>
-      <div class="note">Tip: after adding a claim, item code and price clear but the buyer stays in place for fast selling.</div>
+      <div class="note">Turn <b>KEEP ITEM ON</b> when you have multiples. Enter the code and price once, then choose each buyer and tap ADD CLAIM. The item code and price stay ready until you turn KEEP ITEM off.</div>
+      <div class="actions" style="margin-top:14px">
+        <input id="newBuyerName" placeholder="Add new buyer name" style="max-width:260px;margin:0">
+        <button class="pink" onclick="quickAddBuyer()">ADD BUYER</button>
+      </div>
     </div>
     <div class="card">
       <h2>🧾 Recent Claims</h2>
@@ -180,6 +190,7 @@ if(!data.bingo)data.bingo=[];
 if(!data.spins)data.spins=[];
 if(!data.recent)data.recent=[];
 let lastBuyer='';
+let keepItem=false;
 
 function money(n){return '$'+Number(n||0).toFixed(2)}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -199,18 +210,32 @@ function addClaim(){
   const c=document.getElementById('itemCode').value.trim()||'Item';
   const p=parseFloat(document.getElementById('itemPrice').value);
   const q=parseInt(document.getElementById('itemQty').value||'1');
-  if(!n)return alert('Enter buyer name.');
+  if(!n)return alert('Choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
   const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
   data.recent.unshift({buyer:n,code:c,price:p,qty:q,time:Date.now()}); data.recent=data.recent.slice(0,12);
   lastBuyer=n;
-  document.getElementById('itemCode').value='';
-  document.getElementById('itemPrice').value='';
-  document.getElementById('itemQty').value='1';
+  clearBuyer();
+  if(!keepItem){
+    document.getElementById('itemCode').value='';
+    document.getElementById('itemPrice').value='';
+    document.getElementById('itemQty').value='1';
+  }
   save();
-  document.getElementById('itemCode').focus();
 }
-function repeatLast(){if(lastBuyer)document.getElementById('buyerName').value=lastBuyer}
+function clearBuyer(){document.getElementById('buyerName').value='';}
+function toggleItemLock(){
+  keepItem=!keepItem;
+  const b=document.getElementById('itemLockBtn');
+  if(keepItem){b.textContent='🔒 KEEP ITEM ON';b.classList.add('locked');}
+  else{b.textContent='🔓 KEEP ITEM OFF';b.classList.remove('locked');}
+}
+function quickAddBuyer(){
+  const el=document.getElementById('newBuyerName');
+  const n=el.value.trim();
+  if(!n)return alert('Enter a buyer name.');
+  ensureBuyer(n); el.value=''; save(); document.getElementById('buyerName').value=n;
+}
 function removeItem(n,i){data.buyers[n].items.splice(i,1);save()}
 function setPayment(n,v){data.buyers[n].payment=v;save()}
 function setPickup(n,v){data.buyers[n].pickup=v;save()}
@@ -222,7 +247,13 @@ function renderStats(){
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
 }
 function renderNames(){
-  buyerNames.innerHTML=Object.keys(data.buyers).sort().map(n=>`<option value="${esc(n)}">`).join('');
+  const sel=document.getElementById('buyerName');
+  if(!sel)return;
+  const current=sel.value;
+  const names=Object.keys(data.buyers).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(names.includes(current)) sel.value=current;
+}">`).join('');
 }
 function renderRecent(){
   recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty}</span><b>${money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
