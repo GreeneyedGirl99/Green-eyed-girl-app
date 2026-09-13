@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#22a06b">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Green Eyed Girl Sales</title>
+<style>
+:root{
+  --green:#22a06b; --green2:#147a50; --pink:#ff6fae; --pinksoft:#ffe4f0;
+  --bg:#f4f7f5; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#dfe7e2;
+  --danger:#d64545; --shadow:0 5px 18px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:86px}
+header{
+  position:sticky;top:0;z-index:20;color:#fff;padding:14px 16px 16px;
+  background:linear-gradient(135deg,var(--green),var(--pink));box-shadow:0 2px 10px rgba(0,0,0,.15)
+}
+.headrow{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:1000px;margin:auto}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:42px;height:42px;border-radius:12px;border:2px solid rgba(255,255,255,.65)}
+header h1{font-size:18px;margin:0} header p{margin:2px 0 0;font-size:11px;opacity:.95}
+.install{width:auto;background:#fff;color:var(--green2);padding:9px 11px;border:0;border-radius:10px;font-weight:800;display:none}
+.wrap{max-width:1000px;margin:auto;padding:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:12px;box-shadow:var(--shadow)}
+.stat small{display:block;color:var(--muted);font-size:10px}.stat b{display:block;font-size:20px;margin-top:4px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin-top:12px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 12px;font-size:17px}
+.grid{display:grid;grid-template-columns:2fr 1.2fr 1fr .7fr;gap:8px}
+label{font-size:11px;font-weight:800;color:#374151}
+input,select{width:100%;margin-top:5px;padding:12px;border:1px solid #ccd6d0;border-radius:12px;background:#fff;font-size:16px}
+button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:pointer}
+.primary{background:var(--green);color:#fff}.pink{background:var(--pink);color:#fff}.light{background:#edf3ef;color:#26322c}
+.dark{background:#1f2937;color:#fff}.danger{background:#ffe2e2;color:#991b1b}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions button{width:auto}
+.search{margin-bottom:10px}
+.buyer{border:1px solid var(--line);border-radius:15px;padding:12px;margin:9px 0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}.name{font-weight:900}.total{font-size:18px;font-weight:900;color:var(--green2)}
+.items{font-size:12px;color:#4b5563;margin:7px 0}.item{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed #edf0ee}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.games{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gamebox{border:1px solid var(--line);border-radius:15px;padding:12px;background:#fbfdfc}
+.entry{display:grid;grid-template-columns:1.5fr .8fr .8fr auto;gap:7px;padding:7px 0;border-bottom:1px solid #edf0ee;font-size:12px;align-items:center}
+.winner{background:var(--pinksoft);border-radius:12px;padding:10px;text-align:center;font-weight:900;margin-top:10px}
+.bottom{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);padding:7px 6px calc(7px + env(safe-area-inset-bottom));box-shadow:0 -3px 12px rgba(0,0,0,.08)
+}
+.navbtn{background:#fff;color:#56605b;padding:6px 4px;font-size:11px}.navbtn.active{color:var(--green2);background:#e9f7f0}
+.navbtn span{display:block;font-size:19px;margin-bottom:2px}
+.view{display:none}.view.active{display:block}
+.quickrow{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.note{font-size:11px;color:var(--muted);margin-top:8px}
+.empty{text-align:center;color:var(--muted);padding:18px 8px;font-size:13px}
+@media(max-width:700px){
+  .stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.games{grid-template-columns:1fr}
+}
+@media(max-width:430px){
+  .grid,.quickrow{grid-template-columns:1fr}.actions button{width:100%}.headrow{align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="headrow">
+    <div class="brand">
+      <img src="icon-192.png" alt="GEG">
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 3</p></div>
+    </div>
+    <button id="installBtn" class="install">Install App</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="live" class="view active">
+    <div class="stats">
+      <div class="stat"><small>TOTAL SALES</small><b id="sSales">$0.00</b></div>
+      <div class="stat"><small>UNPAID</small><b id="sUnpaid">$0.00</b></div>
+      <div class="stat"><small>BUYERS</small><b id="sBuyers">0</b></div>
+      <div class="stat"><small>WAITING PICKUP</small><b id="sPickup">0</b></div>
+    </div>
+    <div class="card">
+      <h2>⚡ Fast Claim Entry</h2>
+      <div class="grid">
+        <div><label>Buyer</label><input id="buyerName" list="buyerNames" placeholder="Start typing name"></div>
+        <div><label>Item Code</label><input id="itemCode" placeholder="P12"></div>
+        <div><label>Price</label><input id="itemPrice" type="number" inputmode="decimal" step=".01" placeholder="10"></div>
+        <div><label>Qty</label><input id="itemQty" type="number" inputmode="numeric" min="1" value="1"></div>
+      </div>
+      <datalist id="buyerNames"></datalist>
+      <div class="actions">
+        <button class="primary" onclick="addClaim()">ADD CLAIM</button>
+        <button class="light" onclick="repeatLast()">REPEAT LAST BUYER</button>
+      </div>
+      <div class="note">Tip: after adding a claim, item code and price clear but the buyer stays in place for fast selling.</div>
+    </div>
+    <div class="card">
+      <h2>🧾 Recent Claims</h2>
+      <div id="recentClaims"></div>
+    </div>
+  </section>
+
+  <section id="buyers" class="view">
+    <div class="card">
+      <h2>👥 Buyers & Totals</h2>
+      <input class="search" id="buyerSearch" placeholder="Search buyer..." oninput="renderBuyers()">
+      <div id="buyersList"></div>
+    </div>
+  </section>
+
+  <section id="games" class="view">
+    <div class="games">
+      <div class="gamebox">
+        <h2>🎱 Bingo Balls</h2>
+        <div class="quickrow">
+          <input id="bingoBuyer" placeholder="Buyer">
+          <input id="bingoBall" placeholder="B6">
+          <select id="bingoPaid"><option>Unpaid</option><option>Paid</option></select>
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="assignBingo()">Assign</button>
+          <button class="pink" onclick="drawBingoWinner()">Draw Winner</button>
+        </div>
+        <div id="bingoWinner"></div>
+        <div id="bingoList"></div>
+      </div>
+      <div class="gamebox">
+        <h2>🎡 Spin Tracker</h2>
+        <div class="quickrow">
+          <input id="spinBuyer" placeholder="Buyer">
+          <input id="spinCount" type="number" min="1" value="1">
+          <input id="spinPrice" type="number" step=".01" value="5">
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="addSpins()">Add Spins</button>
+          <button class="pink" onclick="pickSpinWinner()">Pick Winner</button>
+        </div>
+        <div id="spinWinner"></div>
+        <div id="spinList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tools" class="view">
+    <div class="card">
+      <h2>📦 Payment & Pickup</h2>
+      <div id="pickupList"></div>
+    </div>
+    <div class="card">
+      <h2>🛠 Sale Tools</h2>
+      <div class="actions">
+        <button class="dark" onclick="exportCSV()">Export Totals CSV</button>
+        <button class="light" onclick="copyTotals()">Copy Totals</button>
+        <button class="light" onclick="backupData()">Download Backup</button>
+        <button class="light" onclick="restorePicker()">Restore Backup</button>
+        <button class="danger" onclick="resetSale()">Start New Sale</button>
+      </div>
+      <input id="restoreFile" type="file" accept=".json" hidden onchange="restoreData(event)">
+      <div class="note">The app stores data on this device. Use Download Backup regularly so you have a second copy.</div>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom">
+  <button class="navbtn active" onclick="showView('live',this)"><span>⚡</span>LIVE</button>
+  <button class="navbtn" onclick="showView('buyers',this)"><span>👥</span>BUYERS</button>
+  <button class="navbtn" onclick="showView('games',this)"><span>🎉</span>GAMES</button>
+  <button class="navbtn" onclick="showView('tools',this)"><span>📦</span>PICKUP</button>
+</nav>
+
+<script>
+let data;
+try{data=JSON.parse(localStorage.getItem('geg_v3_data')||'{}')}catch(e){data={}}
+if(!data.buyers)data.buyers={};
+if(!data.bingo)data.bingo=[];
+if(!data.spins)data.spins=[];
+if(!data.recent)data.recent=[];
+let lastBuyer='';
+
+function money(n){return '$'+Number(n||0).toFixed(2)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function save(){localStorage.setItem('geg_v3_data',JSON.stringify(data));renderAll()}
+function ensureBuyer(n){n=n.trim();if(!n)return null;if(!data.buyers[n])data.buyers[n]={items:[],payment:'Unpaid',pickup:'Waiting'};return data.buyers[n]}
+function total(b){return b.items.reduce((s,i)=>s+Number(i.price)*Number(i.qty),0)}
+
+function showView(id,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addClaim(){
+  const n=document.getElementById('buyerName').value.trim();
+  const c=document.getElementById('itemCode').value.trim()||'Item';
+  const p=parseFloat(document.getElementById('itemPrice').value);
+  const q=parseInt(document.getElementById('itemQty').value||'1');
+  if(!n)return alert('Enter buyer name.');
+  if(isNaN(p))return alert('Enter price.');
+  const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
+  data.recent.unshift({buyer:n,code:c,price:p,qty:q,time:Date.now()}); data.recent=data.recent.slice(0,12);
+  lastBuyer=n;
+  document.getElementById('itemCode').value='';
+  document.getElementById('itemPrice').value='';
+  document.getElementById('itemQty').value='1';
+  save();
+  document.getElementById('itemCode').focus();
+}
+function repeatLast(){if(lastBuyer)document.getElementById('buyerName').value=lastBuyer}
+function removeItem(n,i){data.buyers[n].items.splice(i,1);save()}
+function setPayment(n,v){data.buyers[n].payment=v;save()}
+function setPickup(n,v){data.buyers[n].pickup=v;save()}
+function removeBuyer(n){if(confirm('Remove '+n+' and all claims?')){delete data.buyers[n];save()}}
+
+function renderStats(){
+  const es=Object.entries(data.buyers);let sales=0,unpaid=0,pick=0;
+  es.forEach(([n,b])=>{const t=total(b);sales+=t;if(b.payment!=='Paid')unpaid+=t;if(b.pickup!=='Picked Up')pick++});
+  sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
+}
+function renderNames(){
+  buyerNames.innerHTML=Object.keys(data.buyers).sort().map(n=>`<option value="${esc(n)}">`).join('');
+}
+function renderRecent(){
+  recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty}</span><b>${money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
+}
+function buyerCard(n,b){
+  const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty}</span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
+  return `<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">${money(total(b))}</div></div><div class="items">${items}</div>
+  <div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div>
+  <div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div>
+  <div class="actions"><button class="danger" onclick='removeBuyer(${JSON.stringify(n)})'>Remove Buyer</button></div></div>`;
+}
+function renderBuyers(){
+  const q=(buyerSearch?.value||'').toLowerCase();
+  const es=Object.entries(data.buyers).filter(([n])=>n.toLowerCase().includes(q)).sort((a,b)=>a[0].localeCompare(b[0]));
+  buyersList.innerHTML=es.length?es.map(([n,b])=>buyerCard(n,b)).join(''):'<div class="empty">No buyers found.</div>';
+}
+function renderPickup(){
+  const es=Object.entries(data.buyers).sort((a,b)=>a[0].localeCompare(b[0]));
+  pickupList.innerHTML=es.length?es.map(([n,b])=>`<div class="buyer"><div class="top"><b>${esc(n)}</b><b>${money(total(b))}</b></div>
+  <div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div>
+  <div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div></div>`).join(''):'<div class="empty">No buyers yet.</div>';
+}
+
+function assignBingo(){
+  const buyer=bingoBuyer.value.trim(),ball=bingoBall.value.trim().toUpperCase(),paid=bingoPaid.value;
+  if(!buyer||!ball)return alert('Enter buyer and ball.');
+  if(data.bingo.some(x=>x.ball===ball))return alert(ball+' already assigned.');
+  data.bingo.push({buyer,ball,paid,winner:false});bingoBall.value='';save()
+}
+function drawBingoWinner(){
+  if(!data.bingo.length)return alert('No balls assigned.');
+  data.bingo.forEach(x=>x.winner=false);data.bingo[Math.floor(Math.random()*data.bingo.length)].winner=true;save()
+}
+function removeBingo(i){data.bingo.splice(i,1);save()}
+function addSpins(){
+  const buyer=spinBuyer.value.trim(),count=parseInt(spinCount.value||'1'),price=parseFloat(spinPrice.value||'0');
+  if(!buyer)return alert('Enter buyer.');
+  for(let i=0;i<count;i++)data.spins.push({buyer,price,winner:false});save()
+}
+function pickSpinWinner(){
+  if(!data.spins.length)return alert('No spins entered.');
+  data.spins.forEach(x=>x.winner=false);data.spins[Math.floor(Math.random()*data.spins.length)].winner=true;save()
+}
+function removeSpin(i){data.spins.splice(i,1);save()}
+function renderGames(){
+  const bw=data.bingo.find(x=>x.winner);
+  bingoWinner.innerHTML=bw?`<div class="winner">🏆 ${esc(bw.buyer)} — ${esc(bw.ball)}</div>`:'';
+  bingoList.innerHTML=data.bingo.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>${esc(x.ball)}</span><span>${x.paid}</span><button class="danger" style="padding:5px" onclick="removeBingo(${i})">X</button></div>`).join('');
+  const sw=data.spins.find(x=>x.winner);
+  spinWinner.innerHTML=sw?`<div class="winner">🏆 ${esc(sw.buyer)}</div>`:'';
+  spinList.innerHTML=data.spins.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>Spin ${i+1}</span><span>${money(x.price)}</span><button class="danger" style="padding:5px" onclick="removeSpin(${i})">X</button></div>`).join('');
+}
+function exportCSV(){
+  const rows=[['Buyer','Total','Payment','Pickup','Items']];
+  Object.entries(data.buyers).forEach(([n,b])=>rows.push([n,total(b).toFixed(2),b.payment,b.pickup,b.items.map(i=>`${i.code} x${i.qty}`).join(' | ')]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');dl(csv,'Green_Eyed_Girl_Totals.csv','text/csv')
+}
+function copyTotals(){
+  let t='GREEN EYED GIRL LIVE SALE TOTALS\n\n';Object.entries(data.buyers).sort().forEach(([n,b])=>t+=`${n}: ${money(total(b))} — ${b.payment} — ${b.pickup}\n`);
+  navigator.clipboard.writeText(t).then(()=>alert('Totals copied!'))
+}
+function backupData(){dl(JSON.stringify(data,null,2),'Green_Eyed_Girl_Backup.json','application/json')}
+function restorePicker(){restoreFile.click()}
+function restoreData(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o.buyers)throw 0;data=o;save();alert('Backup restored.')}catch{alert('Invalid backup file.')}};r.readAsText(f)
+}
+function dl(content,name,type){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+function resetSale(){if(confirm('Clear ALL buyers, claims and game entries? Download a backup first if needed.')){data={buyers:{},bingo:[],spins:[],recent:[]};save()}}
+function renderAll(){renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames()}
+renderAll();
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.style.display='block'});
+installBtn.addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;installBtn.style.display='none'});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+</script>
+</body>
+</html>

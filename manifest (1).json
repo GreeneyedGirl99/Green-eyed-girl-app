@@ -1,0 +1,21 @@
+{
+  "name": "Green Eyed Girl Live Sale Manager",
+  "short_name": "GEG Sales",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#22a06b",
+  "description": "Live-sale claims, buyer totals, games, payments and pickup tracking.",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
