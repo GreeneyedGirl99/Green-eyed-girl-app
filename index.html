@@ -103,7 +103,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.2</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.3</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -122,9 +122,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="grid">
         <div>
   <label>Buyer</label>
-  <select id="buyerName">
-    <option value="">Choose buyer...</option>
-  </select>
+  <input id="buyerName" list="mainBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
+  <datalist id="mainBuyerList"></datalist>
 </div>
         <div><label>Item Code</label><input id="itemCode" placeholder="P12"></div>
         <div><label>Price</label><input id="itemPrice" type="number" inputmode="decimal" step=".01" placeholder="10"></div>
@@ -298,7 +297,7 @@ function addClaim(){
   const c=document.getElementById('itemCode').value.trim()||'Item';
   const p=parseFloat(document.getElementById('itemPrice').value);
   const q=parseInt(document.getElementById('itemQty').value||'1');
-  if(!n)return alert('Choose a buyer.');
+  if(!n)return alert('Start typing or choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
   const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
   recordClaimHistory(n,c,p,q);
@@ -340,12 +339,11 @@ function renderStats(){
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
 }
 function renderNames(){
-  const sel=document.getElementById('buyerName');
-  if(!sel)return;
-  const current=sel.value;
-  const names=Object.keys(data.buyers).sort((a,b)=>a.localeCompare(b));
-  sel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  if(names.includes(current)) sel.value=current;
+  const input=document.getElementById('buyerName');
+  const list=document.getElementById('mainBuyerList');
+  if(!input||!list)return;
+  const names=(data.customerDirectory||Object.keys(data.buyers||{})).slice().sort((a,b)=>a.localeCompare(b));
+  list.innerHTML=names.map(n=>`<option value="${esc(n)}"></option>`).join('');
 }
 function renderRecent(){
   recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty}</span><b>${money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
