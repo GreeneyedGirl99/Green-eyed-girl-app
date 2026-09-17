@@ -63,6 +63,39 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
 @media(max-width:430px){
   .grid,.quickrow{grid-template-columns:1fr}.actions button{width:100%}.headrow{align-items:flex-start}
 }
+
+/* V6.2: scrollable claim history */
+#recentList, #recentClaims, .recent-list {
+  max-height: 420px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+#itemClaimHistory {
+  max-height: 520px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid #ddd;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.item-history-card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px;
+  margin: 8px 0;
+  background: rgba(255,255,255,.65);
+}
+.item-history-card summary { cursor:pointer; font-weight:700; }
+.claim-order-row {
+  display:grid;
+  grid-template-columns: 42px 1fr auto;
+  gap:8px;
+  align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid #eee;
+}
+
 </style>
 </head>
 <body>
@@ -70,7 +103,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.2</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -111,6 +144,12 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
     <div class="card">
       <h2>🧾 Recent Claims</h2>
       <div id="recentClaims"></div>
+<div class="card" style="margin-top:12px">
+  <h3>📋 Item Claim History</h3>
+  <div class="note">Tap an item to see every buyer who claimed it, in claim order. This list stays scrollable even with 20–50+ claims.</div>
+  <div id="itemClaimHistory"></div>
+</div>
+
     </div>
   </section>
 
@@ -139,7 +178,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="note">Fill several games first, then spin your physical wheel back-to-back. The app only records assignments and the winners you enter.</div>
       <div class="quickrow" style="margin-top:10px">
         <select id="wheelGameSelect" onchange="renderGames()"></select>
-        <select id="wheelBuyer"><option value="">Choose buyer...</option></select>
+        <input id="wheelBuyer" list="wheelBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
+<datalist id="wheelBuyerList"></datalist>
         <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
         <button class="primary" onclick="assignWheelSpots()">Assign Spots</button>
       </div>
@@ -167,7 +207,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="note">Fill several Bingo games, then use your physical hopper. Enter each winning ball afterward.</div>
       <div class="quickrow" style="margin-top:10px">
         <select id="bingoGameSelect" onchange="renderGames()"></select>
-        <select id="bingoBuyer"><option value="">Choose buyer...</option></select>
+        <input id="bingoBuyer" list="bingoBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
+<datalist id="bingoBuyerList"></datalist>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
         <button class="primary" onclick="assignBingoSpots()">Assign Balls</button>
       </div>
@@ -260,7 +301,8 @@ function addClaim(){
   if(!n)return alert('Choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
   const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
-  data.recent.unshift({buyer:n,code:c,price:p,qty:q,time:Date.now()}); data.recent=data.recent.slice(0,12);
+  recordClaimHistory(n,c,p,q);
+  data.recent.unshift({buyer:n,code:c,price:p,qty:q,time:Date.now()});
   lastBuyer=n;
   clearBuyer();
   if(!keepItem){
@@ -362,11 +404,9 @@ function currentBingoGame(){
 }
 function fillGameBuyerDropdowns(){
   const names=(data.customerDirectory||Object.keys(data.buyers||{})).slice().sort((a,b)=>a.localeCompare(b));
-  ['wheelBuyer','bingoBuyer'].forEach(id=>{
-    const sel=document.getElementById(id); if(!sel)return;
-    const cur=sel.value;
-    sel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-    if(names.includes(cur))sel.value=cur;
+  [['wheelBuyerList'],['bingoBuyerList']].forEach(([listId])=>{
+    const list=document.getElementById(listId); if(!list)return;
+    list.innerHTML=names.map(n=>`<option value="${esc(n)}"></option>`).join('');
   });
 }
 function startLive(){
@@ -406,8 +446,8 @@ function createBingoGame(){
   setTimeout(()=>{if(bingoGameSelect){bingoGameSelect.value=String(id);renderGames();}},0);
 }
 function assignWheelSpots(){
-  const g=currentWheelGame(), buyer=wheelBuyer.value, qty=parseInt(wheelQty.value||'1',10);
-  if(!buyer)return alert('Choose a buyer.');
+  const g=currentWheelGame(), buyer=wheelBuyer.value.trim(), qty=parseInt(wheelQty.value||'1',10);
+  if(!buyer)return alert('Start typing or choose a buyer.');
   if(g.status==='COMPLETED')return alert('This game is completed. Choose or create another game.');
   const used=new Set(g.entries.map(x=>x.spot)),avail=[];
   for(let i=1;i<=14;i++)if(!used.has(i))avail.push(i);
@@ -420,8 +460,8 @@ function assignWheelSpots(){
   wheelQty.value='1'; save();
 }
 function assignBingoSpots(){
-  const g=currentBingoGame(), buyer=bingoBuyer.value, qty=parseInt(bingoQty.value||'1',10);
-  if(!buyer)return alert('Choose a buyer.');
+  const g=currentBingoGame(), buyer=bingoBuyer.value.trim(), qty=parseInt(bingoQty.value||'1',10);
+  if(!buyer)return alert('Start typing or choose a buyer.');
   if(g.status==='COMPLETED')return alert('This game is completed. Choose or create another game.');
   const used=new Set(g.entries.map(x=>x.ball));
   const avail=getBingoBalls().filter(x=>!used.has(x));
@@ -528,14 +568,59 @@ function resetSale(){
     const freshBuyers={};
     names.forEach(n=>freshBuyers[n]={items:[],payment:'Unpaid',pickup:'Not Picked Up'});
     data.buyers=freshBuyers;
-    data.recent=[]; data.spins=[]; data.wheel=[]; data.bingo=[];
+    data.recent=[]; data.claimHistory=[]; data.claimSeq=0; data.spins=[]; data.wheel=[]; data.bingo=[];
     data.wheelGames=[{id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null}];
     data.bingoGames=[{id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null}];
     data.currentLive=null;
     save();
   }
 }
-function renderAll(){renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames()}
+
+function ensureClaimHistory(){
+  if(!data.claimHistory)data.claimHistory=[];
+  if(!data.claimSeq)data.claimSeq=0;
+}
+function recordClaimHistory(buyer, code, price, qty){
+  ensureClaimHistory();
+  data.claimSeq++;
+  data.claimHistory.push({
+    seq:data.claimSeq,
+    buyer:String(buyer||'').trim(),
+    code:String(code||'').trim(),
+    price:Number(price)||0,
+    qty:Number(qty)||1,
+    at:new Date().toISOString()
+  });
+}
+function renderItemClaimHistory(){
+  const box=document.getElementById('itemClaimHistory');
+  if(!box)return;
+  ensureClaimHistory();
+  const groups={};
+  data.claimHistory.forEach(c=>{
+    const key=c.code||'(No item code)';
+    if(!groups[key])groups[key]=[];
+    groups[key].push(c);
+  });
+  const keys=Object.keys(groups);
+  if(!keys.length){
+    box.innerHTML='<div class="empty">No item claims recorded yet.</div>';
+    return;
+  }
+  box.innerHTML=keys.slice().reverse().map(code=>{
+    const claims=groups[code];
+    const units=claims.reduce((n,c)=>n+(Number(c.qty)||1),0);
+    const price=claims.length?Number(claims[claims.length-1].price)||0:0;
+    return `<details class="item-history-card">
+      <summary>${esc(code)} — ${money(price)} each — ${units} claimed</summary>
+      <div>${claims.map((c,i)=>`<div class="claim-order-row">
+        <b>#${i+1}</b><span>${esc(c.buyer)}</span><span>${Number(c.qty)||1} qty</span>
+      </div>`).join('')}</div>
+    </details>`;
+  }).join('');
+}
+
+function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames()}
 renderAll();
 
 let deferredPrompt;
