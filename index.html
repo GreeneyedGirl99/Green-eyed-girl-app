@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.5</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.6</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -122,6 +122,10 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
 
 <main class="wrap">
   <section id="live" class="view active">
+    <div class="card" style="text-align:center;padding:12px;margin-bottom:12px">
+      <div id="liveDateDisplay" style="font-size:19px;font-weight:900;color:var(--green2)"></div>
+      <div id="liveTimeDisplay" class="note" style="font-size:13px;margin-top:4px"></div>
+    </div>
     <div class="stats">
       <div class="stat"><small>TOTAL SALES</small><b id="sSales">$0.00</b></div>
       <div class="stat"><small>UNPAID</small><b id="sUnpaid">$0.00</b></div>
@@ -189,7 +193,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <select id="wheelGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="wheelBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="wheelBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
-        <button class="primary" onclick="assignWheelSpots()">Assign Spots</button>
+        <button id="assignWheelBtn" class="primary" onclick="assignWheelSpots()">Assign Spots</button>
       </div>
       <div class="actions">
         <button class="light" onclick="createWheelGame()">+ NEW WHEEL GAME</button>
@@ -217,7 +221,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <select id="bingoGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="bingoBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="bingoBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
-        <button class="primary" onclick="assignBingoSpots()">Assign Balls</button>
+        <button id="assignBingoBtn" class="primary" onclick="assignBingoSpots()">Assign Balls</button>
       </div>
       <div class="actions">
         <button class="light" onclick="createBingoGame()">+ NEW BINGO GAME</button>
@@ -426,6 +430,13 @@ function shuffle(arr){
   return a;
 }
 function fmtDT(v){return v?new Date(v).toLocaleString():'—';}
+function renderLiveDate(){
+  const d=document.getElementById('liveDateDisplay'), t=document.getElementById('liveTimeDisplay');
+  if(!d||!t)return;
+  const base=data.currentLive&&data.currentLive.startedAt?new Date(data.currentLive.startedAt):new Date();
+  d.textContent=base.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}).toUpperCase();
+  t.textContent=data.currentLive?'LIVE STARTED: '+new Date(data.currentLive.startedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Ready to start today’s live';
+}
 function currentWheelGame(){
   const sel=document.getElementById('wheelGameSelect');
   const id=sel?Number(sel.value):0;
@@ -476,33 +487,52 @@ function createBingoGame(){
   save();
   setTimeout(()=>{if(bingoGameSelect){bingoGameSelect.value=String(id);renderGames();}},0);
 }
+let wheelAssignLocked=false;
+let bingoAssignLocked=false;
+
 function assignWheelSpots(){
+  if(wheelAssignLocked)return;
+  wheelAssignLocked=true;
+  const assignBtn=document.getElementById('assignWheelBtn');
+  if(assignBtn)assignBtn.disabled=true;
   const g=currentWheelGame(), buyer=wheelBuyer.value.trim(), qty=parseInt(wheelQty.value||'1',10);
-  if(!buyer)return alert('Start typing or choose a buyer.');
-  if(g.status==='COMPLETED')return alert('This game is completed. Choose or create another game.');
+  if(!buyer){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Start typing or choose a buyer.');}
+  if(g.status==='COMPLETED'){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('This game is completed. Choose or create another game.');}
   const used=new Set(g.entries.map(x=>x.spot)),avail=[];
   for(let i=1;i<=14;i++)if(!used.has(i))avail.push(i);
-  if(qty<1)return alert('Enter how many spots they want.');
-  if(qty>avail.length)return alert(`Only ${avail.length} wheel spot(s) are left.`);
+  if(qty<1){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Enter how many spots they want.');}
+  if(qty>avail.length){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} wheel spot(s) are left.`);}
   shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:5}));
   ensureBuyer(buyer);
   data.buyers[buyer].items.push({code:`Wheel #${g.id} x${qty}`,price:5,qty});
   if(g.entries.length===14)g.status='READY';
+  wheelBuyer.value='';
+  const wheelSuggestions=document.getElementById('wheelBuyerSuggestions');
+  if(wheelSuggestions){wheelSuggestions.innerHTML='';wheelSuggestions.classList.remove('open');}
   wheelQty.value='1'; save();
+  setTimeout(()=>{wheelAssignLocked=false;const b=document.getElementById('assignWheelBtn');if(b)b.disabled=false;},500);
 }
 function assignBingoSpots(){
+  if(bingoAssignLocked)return;
+  bingoAssignLocked=true;
+  const assignBtn=document.getElementById('assignBingoBtn');
+  if(assignBtn)assignBtn.disabled=true;
   const g=currentBingoGame(), buyer=bingoBuyer.value.trim(), qty=parseInt(bingoQty.value||'1',10);
-  if(!buyer)return alert('Start typing or choose a buyer.');
-  if(g.status==='COMPLETED')return alert('This game is completed. Choose or create another game.');
+  if(!buyer){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Start typing or choose a buyer.');}
+  if(g.status==='COMPLETED'){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('This game is completed. Choose or create another game.');}
   const used=new Set(g.entries.map(x=>x.ball));
   const avail=getBingoBalls().filter(x=>!used.has(x));
-  if(qty<1)return alert('Enter how many Bingo spots they want.');
-  if(qty>avail.length)return alert(`Only ${avail.length} Bingo ball(s) are left.`);
+  if(qty<1){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Enter how many Bingo spots they want.');}
+  if(qty>avail.length){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} Bingo ball(s) are left.`);}
   shuffle(avail).slice(0,qty).forEach(ball=>g.entries.push({buyer,ball,price:1}));
   ensureBuyer(buyer);
   data.buyers[buyer].items.push({code:`Bingo #${g.id} x${qty}`,price:1,qty});
   if(g.entries.length===75)g.status='READY';
+  bingoBuyer.value='';
+  const bingoSuggestions=document.getElementById('bingoBuyerSuggestions');
+  if(bingoSuggestions){bingoSuggestions.innerHTML='';bingoSuggestions.classList.remove('open');}
   bingoQty.value='1'; save();
+  setTimeout(()=>{bingoAssignLocked=false;const b=document.getElementById('assignBingoBtn');if(b)b.disabled=false;},500);
 }
 function markWheelReady(){const g=currentWheelGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
 function markBingoReady(){const g=currentBingoGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
@@ -651,7 +681,7 @@ function renderItemClaimHistory(){
   }).join('');
 }
 
-function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames()}
+function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames();renderLiveDate()}
 renderAll();
 
 let deferredPrompt;
