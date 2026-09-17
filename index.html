@@ -96,6 +96,17 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   border-bottom:1px solid #eee;
 }
 
+
+/* V6.4: visible, touch-friendly buyer search results */
+.buyer-search-wrap{position:relative;width:100%}
+.buyer-search-wrap input{width:100%}
+.buyer-suggestions{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:100;background:#fff;border:2px solid #22a06b;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.buyer-suggestions.open{display:block}
+.buyer-suggestion{display:block;width:100%;border:0;border-bottom:1px solid #e7ece9;background:#fff;color:#222;text-align:left;padding:13px 14px;font-size:17px;font-weight:700;cursor:pointer}
+.buyer-suggestion:last-child{border-bottom:0}
+.buyer-suggestion:active{background:#eef9f3}
+.buyer-no-match{padding:12px 14px;color:#777;font-size:14px}
+
 </style>
 </head>
 <body>
@@ -103,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.3</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.4</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -122,8 +133,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="grid">
         <div>
   <label>Buyer</label>
-  <input id="buyerName" list="mainBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
-  <datalist id="mainBuyerList"></datalist>
+  <div class="buyer-search-wrap"><input id="buyerName" placeholder="Start typing buyer name..." autocomplete="off"><div id="mainBuyerSuggestions" class="buyer-suggestions"></div></div>
 </div>
         <div><label>Item Code</label><input id="itemCode" placeholder="P12"></div>
         <div><label>Price</label><input id="itemPrice" type="number" inputmode="decimal" step=".01" placeholder="10"></div>
@@ -177,8 +187,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="note">Fill several games first, then spin your physical wheel back-to-back. The app only records assignments and the winners you enter.</div>
       <div class="quickrow" style="margin-top:10px">
         <select id="wheelGameSelect" onchange="renderGames()"></select>
-        <input id="wheelBuyer" list="wheelBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
-<datalist id="wheelBuyerList"></datalist>
+        <div class="buyer-search-wrap"><input id="wheelBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="wheelBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
         <button class="primary" onclick="assignWheelSpots()">Assign Spots</button>
       </div>
@@ -206,8 +215,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       <div class="note">Fill several Bingo games, then use your physical hopper. Enter each winning ball afterward.</div>
       <div class="quickrow" style="margin-top:10px">
         <select id="bingoGameSelect" onchange="renderGames()"></select>
-        <input id="bingoBuyer" list="bingoBuyerList" placeholder="Start typing buyer name..." autocomplete="off">
-<datalist id="bingoBuyerList"></datalist>
+        <div class="buyer-search-wrap"><input id="bingoBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="bingoBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
         <button class="primary" onclick="assignBingoSpots()">Assign Balls</button>
       </div>
@@ -282,7 +290,7 @@ let keepItem=false;
 function money(n){return '$'+Number(n||0).toFixed(2)}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function save(){localStorage.setItem('geg_v3_data',JSON.stringify(data));renderAll()}
-function ensureBuyer(n){n=n.trim();if(!n)return null;if(!data.buyers[n])data.buyers[n]={items:[],payment:'Unpaid',pickup:'Waiting'};return data.buyers[n]}
+function ensureBuyer(n){n=n.trim();if(!n)return null;if(!data.buyers[n])data.buyers[n]={items:[],payment:'Unpaid',pickup:'Waiting'};if(!data.customerDirectory)data.customerDirectory=[];if(!data.customerDirectory.some(x=>x.toLowerCase()===n.toLowerCase()))data.customerDirectory.push(n);return data.buyers[n]}
 function total(b){return b.items.reduce((s,i)=>s+Number(i.price)*Number(i.qty),0)}
 
 function showView(id,btn){
@@ -338,13 +346,31 @@ function renderStats(){
   es.forEach(([n,b])=>{const t=total(b);sales+=t;if(b.payment!=='Paid')unpaid+=t;if(b.pickup!=='Picked Up')pick++});
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
 }
-function renderNames(){
-  const input=document.getElementById('buyerName');
-  const list=document.getElementById('mainBuyerList');
-  if(!input||!list)return;
-  const names=(data.customerDirectory||Object.keys(data.buyers||{})).slice().sort((a,b)=>a.localeCompare(b));
-  list.innerHTML=names.map(n=>`<option value="${esc(n)}"></option>`).join('');
+function allBuyerNames(){
+  return [...new Set([...(data.customerDirectory||[]),...Object.keys(data.buyers||{})])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
 }
+function setupBuyerSearch(inputId,boxId){
+  const input=document.getElementById(inputId), box=document.getElementById(boxId);
+  if(!input||!box||input.dataset.searchReady==='1')return;
+  input.dataset.searchReady='1';
+  const show=()=>{
+    const q=input.value.trim().toLowerCase();
+    if(!q){box.innerHTML='';box.classList.remove('open');return;}
+    const matches=allBuyerNames().filter(n=>n.toLowerCase().includes(q)).slice(0,50);
+    box.innerHTML=matches.length?matches.map(n=>`<button type="button" class="buyer-suggestion" data-name="${esc(n)}">${esc(n)}</button>`).join(''):'<div class="buyer-no-match">No saved buyer matches.</div>';
+    box.classList.add('open');
+  };
+  input.addEventListener('input',show);
+  input.addEventListener('focus',()=>{if(input.value.trim())show();});
+  box.addEventListener('click',e=>{const b=e.target.closest('.buyer-suggestion');if(!b)return;input.value=b.dataset.name;box.classList.remove('open');box.innerHTML='';input.focus();});
+  input.addEventListener('keydown',e=>{if(e.key==='Escape'){box.classList.remove('open');box.innerHTML='';}});
+}
+function renderNames(){
+  setupBuyerSearch('buyerName','mainBuyerSuggestions');
+  setupBuyerSearch('wheelBuyer','wheelBuyerSuggestions');
+  setupBuyerSearch('bingoBuyer','bingoBuyerSuggestions');
+}
+
 function renderRecent(){
   recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty}</span><b>${money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
 }
@@ -401,12 +427,9 @@ function currentBingoGame(){
   return data.bingoGames.find(g=>g.id===id)||data.bingoGames[data.bingoGames.length-1];
 }
 function fillGameBuyerDropdowns(){
-  const names=(data.customerDirectory||Object.keys(data.buyers||{})).slice().sort((a,b)=>a.localeCompare(b));
-  [['wheelBuyerList'],['bingoBuyerList']].forEach(([listId])=>{
-    const list=document.getElementById(listId); if(!list)return;
-    list.innerHTML=names.map(n=>`<option value="${esc(n)}"></option>`).join('');
-  });
+  renderNames();
 }
+
 function startLive(){
   if(data.currentLive)return alert('A Live is already running.');
   data.currentLive={id:Date.now(),startedAt:new Date().toISOString(),endedAt:null};
