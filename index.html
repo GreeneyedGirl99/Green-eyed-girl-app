@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.4</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.5</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -353,17 +353,27 @@ function setupBuyerSearch(inputId,boxId){
   const input=document.getElementById(inputId), box=document.getElementById(boxId);
   if(!input||!box||input.dataset.searchReady==='1')return;
   input.dataset.searchReady='1';
+  const close=()=>{box.classList.remove('open');box.innerHTML='';};
   const show=()=>{
     const q=input.value.trim().toLowerCase();
-    if(!q){box.innerHTML='';box.classList.remove('open');return;}
+    if(!q){close();return;}
     const matches=allBuyerNames().filter(n=>n.toLowerCase().includes(q)).slice(0,50);
     box.innerHTML=matches.length?matches.map(n=>`<button type="button" class="buyer-suggestion" data-name="${esc(n)}">${esc(n)}</button>`).join(''):'<div class="buyer-no-match">No saved buyer matches.</div>';
     box.classList.add('open');
   };
+  const choose=e=>{
+    const b=e.target.closest('.buyer-suggestion');
+    if(!b)return;
+    e.preventDefault();e.stopPropagation();
+    input.value=b.dataset.name;
+    close();
+    input.blur();
+  };
   input.addEventListener('input',show);
   input.addEventListener('focus',()=>{if(input.value.trim())show();});
-  box.addEventListener('click',e=>{const b=e.target.closest('.buyer-suggestion');if(!b)return;input.value=b.dataset.name;box.classList.remove('open');box.innerHTML='';input.focus();});
-  input.addEventListener('keydown',e=>{if(e.key==='Escape'){box.classList.remove('open');box.innerHTML='';}});
+  box.addEventListener('pointerdown',choose);
+  input.addEventListener('keydown',e=>{if(e.key==='Escape'){close();input.blur();}});
+  document.addEventListener('pointerdown',e=>{if(e.target!==input&&!box.contains(e.target))close();});
 }
 function renderNames(){
   setupBuyerSearch('buyerName','mainBuyerSuggestions');
