@@ -70,7 +70,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 4.1</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 5</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -123,37 +123,40 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   </section>
 
   <section id="games" class="view">
-    <div class="games">
-      <div class="gamebox">
-        <h2>🎱 Bingo Balls</h2>
-        <div class="quickrow">
-          <input id="bingoBuyer" placeholder="Buyer">
-          <input id="bingoBall" placeholder="B6">
-          <select id="bingoPaid"><option>Unpaid</option><option>Paid</option></select>
-        </div>
-        <div class="actions">
-          <button class="primary" onclick="assignBingo()">Assign</button>
-          <button class="pink" onclick="drawBingoWinner()">Draw Winner</button>
-        </div>
-        <div id="bingoWinner"></div>
-        <div id="bingoList"></div>
+  <div class="games">
+    <div class="gamebox">
+      <h2>🎡 $5 Wheel — 14 Spots</h2>
+      <div class="note">Choose a buyer and how many spots they want. The app randomly assigns unused spot numbers 1–14.</div>
+      <div class="quickrow" style="margin-top:10px">
+        <select id="wheelBuyer"><option value="">Choose buyer...</option></select>
+        <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
+        <button class="primary" onclick="assignWheelSpots()">Assign Spots</button>
       </div>
-      <div class="gamebox">
-        <h2>🎡 Spin Tracker</h2>
-        <div class="quickrow">
-          <input id="spinBuyer" placeholder="Buyer">
-          <input id="spinCount" type="number" min="1" value="1">
-          <input id="spinPrice" type="number" step=".01" value="5">
-        </div>
-        <div class="actions">
-          <button class="primary" onclick="addSpins()">Add Spins</button>
-          <button class="pink" onclick="pickSpinWinner()">Pick Winner</button>
-        </div>
-        <div id="spinWinner"></div>
-        <div id="spinList"></div>
+      <div class="winner" id="wheelStatus" style="display:none"></div>
+      <div id="wheelList"></div>
+      <div class="actions">
+        <button class="pink" onclick="pickWheelWinner()">Pick Winner</button>
+        <button class="light" onclick="newWheel()">New / Clear Wheel</button>
       </div>
     </div>
-  </section>
+
+    <div class="gamebox">
+      <h2>🎱 $1 Bingo — 75 Balls</h2>
+      <div class="note">Choose a buyer and how many $1 spots they want. The app shuffles all 75 standard Bingo balls and assigns unused numbers randomly.</div>
+      <div class="quickrow" style="margin-top:10px">
+        <select id="bingoBuyer"><option value="">Choose buyer...</option></select>
+        <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
+        <button class="primary" onclick="assignBingoSpots()">Assign Spots</button>
+      </div>
+      <div class="winner" id="bingoStatus" style="display:none"></div>
+      <div id="bingoList"></div>
+      <div class="actions">
+        <button class="pink" onclick="drawBingoWinner()">Draw Winner</button>
+        <button class="light" onclick="newBingo()">New / Clear Bingo</button>
+      </div>
+    </div>
+  </div>
+</section>
 
   <section id="tools" class="view">
     <div class="card">
@@ -187,6 +190,7 @@ let data;
 try{data=JSON.parse(localStorage.getItem('geg_v3_data')||'{}')}catch(e){data={}}
 if(!data.buyers)data.buyers={};
 if(!data.bingo)data.bingo=[];
+if(!data.wheel)data.wheel=[];
 if(!data.spins)data.spins=[];
 if(!data.recent)data.recent=[];
 let lastBuyer='';
@@ -280,34 +284,111 @@ function renderPickup(){
   <div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div></div>`).join(''):'<div class="empty">No buyers yet.</div>';
 }
 
-function assignBingo(){
-  const buyer=bingoBuyer.value.trim(),ball=bingoBall.value.trim().toUpperCase(),paid=bingoPaid.value;
-  if(!buyer||!ball)return alert('Enter buyer and ball.');
-  if(data.bingo.some(x=>x.ball===ball))return alert(ball+' already assigned.');
-  data.bingo.push({buyer,ball,paid,winner:false});bingoBall.value='';save()
+
+function getBingoBalls(){
+  const balls=[];
+  for(let i=1;i<=75;i++){
+    let letter='B';
+    if(i>=16&&i<=30) letter='I';
+    else if(i>=31&&i<=45) letter='N';
+    else if(i>=46&&i<=60) letter='G';
+    else if(i>=61) letter='O';
+    balls.push(letter+i);
+  }
+  return balls;
+}
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function fillGameBuyerDropdowns(){
+  const names=Object.keys(data.buyers).sort((a,b)=>a.localeCompare(b));
+  ['wheelBuyer','bingoBuyer'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(names.includes(cur)) sel.value=cur;
+  });
+}
+function assignWheelSpots(){
+  const buyer=wheelBuyer.value;
+  const qty=parseInt(wheelQty.value||'1',10);
+  if(!buyer)return alert('Choose a buyer.');
+  const used=new Set(data.wheel.map(x=>x.spot));
+  const avail=[]; for(let i=1;i<=14;i++) if(!used.has(i)) avail.push(i);
+  if(qty<1)return alert('Enter how many spots they want.');
+  if(qty>avail.length)return alert(`Only ${avail.length} wheel spot(s) are left.`);
+  shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>data.wheel.push({buyer,spot,price:5,winner:false}));
+  ensureBuyer(buyer);
+  data.buyers[buyer].items.push({code:`Wheel x${qty}`,price:5,qty});
+  wheelQty.value='1';
+  save();
+}
+function pickWheelWinner(){
+  if(!data.wheel.length)return alert('No wheel spots assigned yet.');
+  data.wheel.forEach(x=>x.winner=false);
+  data.wheel[Math.floor(Math.random()*data.wheel.length)].winner=true;
+  save();
+}
+function newWheel(){
+  if(confirm('Clear all wheel spots and start a new wheel?')){data.wheel=[];save();}
+}
+function removeWheelSpot(i){data.wheel.splice(i,1);save();}
+
+function assignBingoSpots(){
+  const buyer=bingoBuyer.value;
+  const qty=parseInt(bingoQty.value||'1',10);
+  if(!buyer)return alert('Choose a buyer.');
+  const used=new Set(data.bingo.map(x=>x.ball));
+  const avail=getBingoBalls().filter(x=>!used.has(x));
+  if(qty<1)return alert('Enter how many Bingo spots they want.');
+  if(qty>avail.length)return alert(`Only ${avail.length} Bingo ball(s) are left.`);
+  shuffle(avail).slice(0,qty).forEach(ball=>data.bingo.push({buyer,ball,price:1,winner:false}));
+  ensureBuyer(buyer);
+  data.buyers[buyer].items.push({code:`Bingo x${qty}`,price:1,qty});
+  bingoQty.value='1';
+  save();
 }
 function drawBingoWinner(){
-  if(!data.bingo.length)return alert('No balls assigned.');
-  data.bingo.forEach(x=>x.winner=false);data.bingo[Math.floor(Math.random()*data.bingo.length)].winner=true;save()
+  if(!data.bingo.length)return alert('No Bingo balls assigned yet.');
+  data.bingo.forEach(x=>x.winner=false);
+  data.bingo[Math.floor(Math.random()*data.bingo.length)].winner=true;
+  save();
 }
-function removeBingo(i){data.bingo.splice(i,1);save()}
-function addSpins(){
-  const buyer=spinBuyer.value.trim(),count=parseInt(spinCount.value||'1'),price=parseFloat(spinPrice.value||'0');
-  if(!buyer)return alert('Enter buyer.');
-  for(let i=0;i<count;i++)data.spins.push({buyer,price,winner:false});save()
+function newBingo(){
+  if(confirm('Clear all Bingo assignments and start a new game?')){data.bingo=[];save();}
 }
-function pickSpinWinner(){
-  if(!data.spins.length)return alert('No spins entered.');
-  data.spins.forEach(x=>x.winner=false);data.spins[Math.floor(Math.random()*data.spins.length)].winner=true;save()
-}
-function removeSpin(i){data.spins.splice(i,1);save()}
+function removeBingoSpot(i){data.bingo.splice(i,1);save();}
+
 function renderGames(){
-  const bw=data.bingo.find(x=>x.winner);
-  bingoWinner.innerHTML=bw?`<div class="winner">🏆 ${esc(bw.buyer)} — ${esc(bw.ball)}</div>`:'';
-  bingoList.innerHTML=data.bingo.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>${esc(x.ball)}</span><span>${x.paid}</span><button class="danger" style="padding:5px" onclick="removeBingo(${i})">X</button></div>`).join('');
-  const sw=data.spins.find(x=>x.winner);
-  spinWinner.innerHTML=sw?`<div class="winner">🏆 ${esc(sw.buyer)}</div>`:'';
-  spinList.innerHTML=data.spins.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>Spin ${i+1}</span><span>${money(x.price)}</span><button class="danger" style="padding:5px" onclick="removeSpin(${i})">X</button></div>`).join('');
+  fillGameBuyerDropdowns();
+
+  if(document.getElementById('wheelList')){
+    const sorted=[...data.wheel].sort((a,b)=>a.spot-b.spot);
+    wheelList.innerHTML=sorted.length?sorted.map(x=>{
+      const i=data.wheel.indexOf(x);
+      return `<div class="entry"><b>${esc(x.buyer)}</b><span>Spot ${x.spot}</span><span>$5</span><button class="danger" style="padding:5px" onclick="removeWheelSpot(${i})">X</button></div>`;
+    }).join(''):'<div class="empty">0 of 14 spots assigned.</div>';
+    const win=data.wheel.find(x=>x.winner);
+    wheelStatus.style.display='block';
+    wheelStatus.innerHTML=win
+      ? `🏆 Winner: ${esc(win.buyer)} — Spot ${win.spot}<br><small>${data.wheel.length}/14 filled</small>`
+      : `${data.wheel.length}/14 spots filled • ${14-data.wheel.length} left • ${money(data.wheel.length*5)} sold`;
+  }
+
+  if(document.getElementById('bingoList')){
+    bingoList.innerHTML=data.bingo.length?data.bingo.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>${esc(x.ball)}</span><span>$1</span><button class="danger" style="padding:5px" onclick="removeBingoSpot(${i})">X</button></div>`).join(''):'<div class="empty">0 of 75 balls assigned.</div>';
+    const win=data.bingo.find(x=>x.winner);
+    bingoStatus.style.display='block';
+    bingoStatus.innerHTML=win
+      ? `🏆 Winner: ${esc(win.buyer)} — ${esc(win.ball)}<br><small>${data.bingo.length}/75 assigned</small>`
+      : `${data.bingo.length}/75 balls assigned • ${75-data.bingo.length} left • ${money(data.bingo.length)} sold`;
+  }
 }
 function exportCSV(){
   const rows=[['Buyer','Total','Payment','Pickup','Items']];
@@ -324,7 +405,7 @@ function restoreData(e){
   const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o.buyers)throw 0;data=o;save();alert('Backup restored.')}catch{alert('Invalid backup file.')}};r.readAsText(f)
 }
 function dl(content,name,type){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-function resetSale(){if(confirm('Clear ALL buyers, claims and game entries? Download a backup first if needed.')){data={buyers:{},bingo:[],spins:[],recent:[]};save()}}
+function resetSale(){if(confirm('Clear ALL buyers, claims and game entries? Download a backup first if needed.')){data={buyers:{},bingo:[],wheel:[],spins:[],recent:[]};save()}}
 function renderAll(){renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames()}
 renderAll();
 
