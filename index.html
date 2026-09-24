@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.6</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.7</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -189,15 +189,17 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
     <div class="gamebox">
       <h2>🎡 $5 Wheel — 14 Spots</h2>
       <div class="note">Fill several games first, then spin your physical wheel back-to-back. The app only records assignments and the winners you enter.</div>
+      <div class="actions" style="margin:12px 0 4px">
+        <button class="light" onclick="confirmCreateWheelGame()">+ NEW WHEEL GAME</button>
+        <button class="light" onclick="markWheelReady()">MARK READY</button>
+      </div>
+      <label style="margin-top:10px">Wheel Code Word</label>
+      <input id="wheelCodeWord" placeholder="Enter code word for this wheel..." oninput="saveWheelCodeWord()">
       <div class="quickrow" style="margin-top:10px">
         <select id="wheelGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="wheelBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="wheelBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
         <button id="assignWheelBtn" class="primary" onclick="assignWheelSpots()">Assign Spots</button>
-      </div>
-      <div class="actions">
-        <button class="light" onclick="createWheelGame()">+ NEW WHEEL GAME</button>
-        <button class="light" onclick="markWheelReady()">MARK READY</button>
       </div>
       <div class="winner" id="wheelStatus"></div>
       <div id="wheelList"></div>
@@ -217,15 +219,15 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
     <div class="gamebox">
       <h2>🎱 $1 Bingo — 75 Balls</h2>
       <div class="note">Fill several Bingo games, then use your physical hopper. Enter each winning ball afterward.</div>
+      <div class="actions" style="margin:12px 0 4px">
+        <button class="light" onclick="confirmCreateBingoGame()">+ NEW BINGO GAME</button>
+        <button class="light" onclick="markBingoReady()">MARK READY</button>
+      </div>
       <div class="quickrow" style="margin-top:10px">
         <select id="bingoGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="bingoBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="bingoBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
         <button id="assignBingoBtn" class="primary" onclick="assignBingoSpots()">Assign Balls</button>
-      </div>
-      <div class="actions">
-        <button class="light" onclick="createBingoGame()">+ NEW BINGO GAME</button>
-        <button class="light" onclick="markBingoReady()">MARK READY</button>
       </div>
       <div class="winner" id="bingoStatus"></div>
       <div id="bingoList"></div>
@@ -475,9 +477,21 @@ function endLive(){
   data.currentLive=null;
   save();
 }
+function confirmCreateWheelGame(){
+  if(confirm('Start a NEW wheel game?'))createWheelGame();
+}
+function confirmCreateBingoGame(){
+  if(confirm('Start a NEW Bingo game?'))createBingoGame();
+}
+function saveWheelCodeWord(){
+  const g=currentWheelGame();
+  if(!g)return;
+  g.codeWord=(document.getElementById('wheelCodeWord')?.value||'').trim();
+  localStorage.setItem('geg_v3_data',JSON.stringify(data));
+}
 function createWheelGame(){
   const id=Math.max(0,...data.wheelGames.map(g=>g.id))+1;
-  data.wheelGames.push({id,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null});
+  data.wheelGames.push({id,status:'FILLING',entries:[],winners:[],codeWord:'',startedAt:new Date().toISOString(),finishedAt:null});
   save();
   setTimeout(()=>{if(wheelGameSelect){wheelGameSelect.value=String(id);renderGames();}},0);
 }
@@ -487,6 +501,25 @@ function createBingoGame(){
   save();
   setTimeout(()=>{if(bingoGameSelect){bingoGameSelect.value=String(id);renderGames();}},0);
 }
+function syncGameCharges(){
+  // Remove every automatically-created game fee, then rebuild from the spots/balls that actually exist.
+  Object.values(data.buyers||{}).forEach(b=>{
+    b.items=(b.items||[]).filter(i=>!/^Wheel #\d+ x\d+$/.test(String(i.code||''))&&!/^Bingo #\d+ x\d+$/.test(String(i.code||'')));
+  });
+  const addGrouped=(games,label,price)=>{
+    (games||[]).forEach(g=>{
+      const counts={};
+      (g.entries||[]).forEach(e=>{if(e.buyer)counts[e.buyer]=(counts[e.buyer]||0)+1;});
+      Object.entries(counts).forEach(([buyer,qty])=>{
+        const b=ensureBuyer(buyer);
+        b.items.push({code:`${label} #${g.id} x${qty}`,price,qty});
+      });
+    });
+  };
+  addGrouped(data.wheelGames,'Wheel',5);
+  addGrouped(data.bingoGames,'Bingo',1);
+}
+
 let wheelAssignLocked=false;
 let bingoAssignLocked=false;
 
@@ -504,7 +537,7 @@ function assignWheelSpots(){
   if(qty>avail.length){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} wheel spot(s) are left.`);}
   shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:5}));
   ensureBuyer(buyer);
-  data.buyers[buyer].items.push({code:`Wheel #${g.id} x${qty}`,price:5,qty});
+  syncGameCharges();
   if(g.entries.length===14)g.status='READY';
   wheelBuyer.value='';
   const wheelSuggestions=document.getElementById('wheelBuyerSuggestions');
@@ -526,7 +559,7 @@ function assignBingoSpots(){
   if(qty>avail.length){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} Bingo ball(s) are left.`);}
   shuffle(avail).slice(0,qty).forEach(ball=>g.entries.push({buyer,ball,price:1}));
   ensureBuyer(buyer);
-  data.buyers[buyer].items.push({code:`Bingo #${g.id} x${qty}`,price:1,qty});
+  syncGameCharges();
   if(g.entries.length===75)g.status='READY';
   bingoBuyer.value='';
   const bingoSuggestions=document.getElementById('bingoBuyerSuggestions');
@@ -568,8 +601,8 @@ function toggleWheelPrizeGiven(i){const g=currentWheelGame();g.winners[i].prizeG
 function toggleBingoPrizeGiven(i){const g=currentBingoGame();g.winners[i].prizeGiven=!g.winners[i].prizeGiven;save();}
 function removeWheelWinner(i){const g=currentWheelGame();if(confirm('Remove this winner?')){g.winners.splice(i,1);g.winners.forEach((w,j)=>w.place=j+1);save();}}
 function removeBingoWinner(i){const g=currentBingoGame();if(confirm('Remove this winner?')){g.winners.splice(i,1);g.winners.forEach((w,j)=>w.place=j+1);save();}}
-function removeWheelSpot(i){const g=currentWheelGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';save();}
-function removeBingoSpot(i){const g=currentBingoGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';save();}
+function removeWheelSpot(i){const g=currentWheelGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';syncGameCharges();save();}
+function removeBingoSpot(i){const g=currentBingoGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';syncGameCharges();save();}
 function renderGames(){
   fillGameBuyerDropdowns();
   if(!data.wheelGames.length)createWheelGame();
@@ -581,6 +614,11 @@ function renderGames(){
     const cur=wgSel.value;
     wgSel.innerHTML=data.wheelGames.map(g=>`<option value="${g.id}">Wheel #${g.id} — ${g.status}</option>`).join('');
     if(data.wheelGames.some(g=>String(g.id)===cur))wgSel.value=cur; else wgSel.value=String(data.wheelGames[data.wheelGames.length-1].id);
+  }
+  const wheelCodeWordEl=document.getElementById('wheelCodeWord');
+  if(wheelCodeWordEl){
+    const selected=data.wheelGames.find(g=>String(g.id)===String(wgSel?.value))||data.wheelGames[data.wheelGames.length-1];
+    wheelCodeWordEl.value=selected?.codeWord||'';
   }
   if(bgSel){
     const cur=bgSel.value;
@@ -682,6 +720,11 @@ function renderItemClaimHistory(){
 }
 
 function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames();renderLiveDate()}
+if(!data.v67GameTotalsReconciled){
+  syncGameCharges();
+  data.v67GameTotalsReconciled=true;
+  localStorage.setItem('geg_v3_data',JSON.stringify(data));
+}
 renderAll();
 
 let deferredPrompt;
