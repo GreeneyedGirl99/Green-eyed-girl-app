@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.7</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.8</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -225,7 +225,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       </div>
       <div class="quickrow" style="margin-top:10px">
         <select id="bingoGameSelect" onchange="renderGames()"></select>
-        <div class="buyer-search-wrap"><input id="bingoBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="bingoBuyerSuggestions" class="buyer-suggestions"></div></div>
+        <select id="bingoBuyer"><option value="">Choose buyer...</option></select>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
         <button id="assignBingoBtn" class="primary" onclick="assignBingoSpots()">Assign Balls</button>
       </div>
@@ -311,7 +311,7 @@ function addClaim(){
   const c=document.getElementById('itemCode').value.trim()||'Item';
   const p=parseFloat(document.getElementById('itemPrice').value);
   const q=parseInt(document.getElementById('itemQty').value||'1');
-  if(!n)return alert('Start typing or choose a buyer.');
+  if(!n)return alert('Choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
   const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
   recordClaimHistory(n,c,p,q);
@@ -384,7 +384,13 @@ function setupBuyerSearch(inputId,boxId){
 function renderNames(){
   setupBuyerSearch('buyerName','mainBuyerSuggestions');
   setupBuyerSearch('wheelBuyer','wheelBuyerSuggestions');
-  setupBuyerSearch('bingoBuyer','bingoBuyerSuggestions');
+  const bingoSel=document.getElementById('bingoBuyer');
+  if(bingoSel){
+    const current=bingoSel.value;
+    const names=Object.keys(data.buyers||{}).sort((a,b)=>a.localeCompare(b));
+    bingoSel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(names.includes(current))bingoSel.value=current;
+  }
 }
 
 function renderRecent(){
@@ -551,7 +557,7 @@ function assignBingoSpots(){
   const assignBtn=document.getElementById('assignBingoBtn');
   if(assignBtn)assignBtn.disabled=true;
   const g=currentBingoGame(), buyer=bingoBuyer.value.trim(), qty=parseInt(bingoQty.value||'1',10);
-  if(!buyer){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Start typing or choose a buyer.');}
+  if(!buyer){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Choose a buyer.');}
   if(g.status==='COMPLETED'){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('This game is completed. Choose or create another game.');}
   const used=new Set(g.entries.map(x=>x.ball));
   const avail=getBingoBalls().filter(x=>!used.has(x));
@@ -562,8 +568,6 @@ function assignBingoSpots(){
   syncGameCharges();
   if(g.entries.length===75)g.status='READY';
   bingoBuyer.value='';
-  const bingoSuggestions=document.getElementById('bingoBuyerSuggestions');
-  if(bingoSuggestions){bingoSuggestions.innerHTML='';bingoSuggestions.classList.remove('open');}
   bingoQty.value='1'; save();
   setTimeout(()=>{bingoAssignLocked=false;const b=document.getElementById('assignBingoBtn');if(b)b.disabled=false;},500);
 }
