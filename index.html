@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.8</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.9</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -142,9 +142,11 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <div><label>Item Code</label><input id="itemCode" placeholder="P12"></div>
         <div><label>Price</label><input id="itemPrice" type="number" inputmode="decimal" step=".01" placeholder="10"></div>
         <div><label>Qty</label><input id="itemQty" type="number" inputmode="numeric" min="1" value="1"></div>
+        <div><label>Seller</label><select id="itemSeller"><option>Melinda</option><option>Lexi</option><option>Sherry</option></select></div>
       </div>
       <div class="actions">
         <button class="primary" onclick="addClaim()">ADD CLAIM</button>
+        <button class="pink" onclick="saveNoSale()">NO SALE</button>
         <button class="light" onclick="clearBuyer()">CLEAR BUYER</button>
         <button class="light" onclick="toggleItemLock()" id="itemLockBtn">🔓 KEEP ITEM OFF</button>
       </div>
@@ -153,6 +155,21 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <input id="newBuyerName" placeholder="Add new buyer name" style="max-width:260px;margin:0">
         <button class="pink" onclick="quickAddBuyer()">ADD BUYER</button>
       </div>
+    </div>
+    <div class="card">
+      <h2>💰 Seller Totals</h2>
+      <div class="stats">
+        <div class="stat"><small>MELINDA</small><b id="sellerMelinda">$0.00</b></div>
+        <div class="stat"><small>LEXI</small><b id="sellerLexi">$0.00</b></div>
+        <div class="stat"><small>SHERRY</small><b id="sellerSherry">$0.00</b></div>
+        <div class="stat"><small>NO SALE VALUE</small><b id="noSaleValue">$0.00</b></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🔎 Find Item by Code Word</h2>
+      <input id="codeSearch" list="codeSearchList" placeholder="Type or choose a code word..." oninput="renderCodeSearchResult()">
+      <datalist id="codeSearchList"></datalist>
+      <div id="codeSearchResult" style="margin-top:10px"></div>
     </div>
     <div class="card">
       <h2>🧾 Recent Claims</h2>
@@ -187,7 +204,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
 
   <div class="games">
     <div class="gamebox">
-      <h2>🎡 $5 Wheel — 14 Spots</h2>
+      <h2>🎡 Wheel — 14 Spots</h2>
       <div class="note">Fill several games first, then spin your physical wheel back-to-back. The app only records assignments and the winners you enter.</div>
       <div class="actions" style="margin:12px 0 4px">
         <button class="light" onclick="confirmCreateWheelGame()">+ NEW WHEEL GAME</button>
@@ -195,6 +212,10 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       </div>
       <label style="margin-top:10px">Wheel Code Word</label>
       <input id="wheelCodeWord" placeholder="Enter code word for this wheel..." oninput="saveWheelCodeWord()">
+      <div class="two" style="margin-top:10px">
+        <div><label>Wheel Price Per Spot ($1–$25)</label><input id="wheelPrice" type="number" min="1" max="25" value="5" inputmode="decimal" onchange="saveWheelPrice()"></div>
+        <div><label>Free Spot</label><select id="wheelFree"><option value="no">Charge buyer</option><option value="yes">FREE — $0</option></select></div>
+      </div>
       <div class="quickrow" style="margin-top:10px">
         <select id="wheelGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="wheelBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="wheelBuyerSuggestions" class="buyer-suggestions"></div></div>
@@ -287,9 +308,12 @@ if(!data.wheelGames)data.wheelGames=[];
 if(!data.bingoGames)data.bingoGames=[];
 if(!data.liveHistory)data.liveHistory=[];
 if(!data.currentLive)data.currentLive=null;
-if(!data.wheelGames.length)data.wheelGames.push({id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null});
+if(!data.wheelGames.length)data.wheelGames.push({id:1,status:'FILLING',entries:[],winners:[],price:5,startedAt:new Date().toISOString(),finishedAt:null});
 if(!data.bingoGames.length)data.bingoGames.push({id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null});
 if(!data.bingoHistory)data.bingoHistory=[];
+if(!data.noSales)data.noSales=[];
+Object.values(data.buyers||{}).forEach(b=>(b.items||[]).forEach(i=>{if(!i.seller)i.seller='Melinda';}));
+(data.wheelGames||[]).forEach(g=>{if(!g.price)g.price=5;(g.entries||[]).forEach(e=>{if(e.price===undefined)e.price=g.price||5;if(e.free===undefined)e.free=false;});});
 let lastBuyer='';
 let keepItem=false;
 
@@ -311,21 +335,74 @@ function addClaim(){
   const c=document.getElementById('itemCode').value.trim()||'Item';
   const p=parseFloat(document.getElementById('itemPrice').value);
   const q=parseInt(document.getElementById('itemQty').value||'1');
+  const seller=document.getElementById('itemSeller').value||'Melinda';
   if(!n)return alert('Choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
-  const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q});
-  recordClaimHistory(n,c,p,q);
-  data.recent.unshift({buyer:n,code:c,price:p,qty:q,time:Date.now()});
+  const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q,seller});
+  recordClaimHistory(n,c,p,q,seller);
+  data.recent.unshift({buyer:n,code:c,price:p,qty:q,seller,time:Date.now()});
   lastBuyer=n;
   clearBuyer();
   if(!keepItem){
     document.getElementById('itemCode').value='';
     document.getElementById('itemPrice').value='';
     document.getElementById('itemQty').value='1';
+    document.getElementById('itemSeller').value='Melinda';
   }
   save();
 }
 function clearBuyer(){document.getElementById('buyerName').value='';}
+function saveNoSale(){
+  const c=document.getElementById('itemCode').value.trim();
+  const p=parseFloat(document.getElementById('itemPrice').value);
+  const q=parseInt(document.getElementById('itemQty').value||'1');
+  const seller=document.getElementById('itemSeller').value||'Melinda';
+  if(!c)return alert('Enter an item code word.');
+  if(isNaN(p))return alert('Enter price.');
+  data.noSales.push({id:Date.now(),code:c,price:p,qty:q,seller,at:new Date().toISOString()});
+  data.recent.unshift({buyer:'NO SALE',code:c,price:p,qty:q,seller,time:Date.now(),noSale:true});
+  clearBuyer();
+  if(!keepItem){
+    itemCode.value='';itemPrice.value='';itemQty.value='1';itemSeller.value='Melinda';
+  }
+  save();
+}
+function assignNoSale(id){
+  const item=data.noSales.find(x=>x.id===id);
+  if(!item)return;
+  const name=prompt(`Assign ${item.code} to which buyer?`);
+  if(!name||!name.trim())return;
+  const buyerName=name.trim();
+  ensureBuyer(buyerName).items.push({code:item.code,price:item.price,qty:item.qty,seller:item.seller||'Melinda'});
+  recordClaimHistory(buyerName,item.code,item.price,item.qty,item.seller||'Melinda');
+  data.recent.unshift({buyer:buyerName,code:item.code,price:item.price,qty:item.qty,seller:item.seller||'Melinda',time:Date.now()});
+  data.noSales=data.noSales.filter(x=>x.id!==id);
+  save();
+}
+function allItemCodes(){
+  const set=new Set();
+  data.noSales.forEach(x=>set.add(x.code));
+  Object.values(data.buyers||{}).forEach(b=>(b.items||[]).forEach(i=>{if(i.code&&!/^Wheel #|^Bingo #/.test(i.code))set.add(i.code);}));
+  (data.claimHistory||[]).forEach(c=>{if(c.code)set.add(c.code);});
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function renderCodeSearchResult(){
+  const input=document.getElementById('codeSearch'),box=document.getElementById('codeSearchResult');
+  if(!input||!box)return;
+  const q=input.value.trim().toLowerCase();
+  if(!q){box.innerHTML='';return;}
+  const unsold=data.noSales.filter(x=>x.code.toLowerCase().includes(q));
+  const sold=[];
+  Object.entries(data.buyers||{}).forEach(([buyer,b])=>(b.items||[]).forEach(i=>{
+    if(i.code&&i.code.toLowerCase().includes(q)&&!/^Wheel #|^Bingo #/.test(i.code))sold.push({buyer,...i});
+  }));
+  let html='';
+  if(unsold.length)html+='<h3>Available / No Sale</h3>'+unsold.map(x=>`<div class="item"><span><b>${esc(x.code)}</b> • ${money(x.price)} • ${esc(x.seller||'Melinda')} • qty ${x.qty}</span><button class="primary" style="padding:6px 10px" onclick="assignNoSale(${x.id})">ASSIGN BUYER</button></div>`).join('');
+  if(sold.length)html+='<h3>Already Sold</h3>'+sold.slice(-30).reverse().map(x=>`<div class="item"><span><b>${esc(x.code)}</b> • ${esc(x.buyer)} • ${esc(x.seller||'Melinda')}</span><b>${money(x.price*x.qty)}</b></div>`).join('');
+  if(!html)html='<div class="empty">No matching code word found.</div>';
+  box.innerHTML=html;
+}
+
 function toggleItemLock(){
   keepItem=!keepItem;
   const b=document.getElementById('itemLockBtn');
@@ -349,8 +426,18 @@ function removeBuyer(n){if(confirm('Remove '+n+' and all claims?')){delete data.
 
 function renderStats(){
   const es=Object.entries(data.buyers);let sales=0,unpaid=0,pick=0;
-  es.forEach(([n,b])=>{const t=total(b);sales+=t;if(b.payment!=='Paid')unpaid+=t;if(b.pickup!=='Picked Up')pick++});
+  const sellerTotals={Melinda:0,Lexi:0,Sherry:0};
+  es.forEach(([n,b])=>{
+    const t=total(b);sales+=t;if(b.payment!=='Paid')unpaid+=t;if(b.pickup!=='Picked Up')pick++;
+    (b.items||[]).forEach(i=>{const seller=i.seller||'Melinda';if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=Number(i.price||0)*Number(i.qty||0);});
+  });
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
+  if(document.getElementById('sellerMelinda'))sellerMelinda.textContent=money(sellerTotals.Melinda);
+  if(document.getElementById('sellerLexi'))sellerLexi.textContent=money(sellerTotals.Lexi);
+  if(document.getElementById('sellerSherry'))sellerSherry.textContent=money(sellerTotals.Sherry);
+  if(document.getElementById('noSaleValue'))noSaleValue.textContent=money(data.noSales.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||0),0));
+  const dl=document.getElementById('codeSearchList');
+  if(dl)dl.innerHTML=allItemCodes().map(c=>`<option value="${esc(c)}"></option>`).join('');
 }
 function allBuyerNames(){
   return [...new Set([...(data.customerDirectory||[]),...Object.keys(data.buyers||{})])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
@@ -394,10 +481,10 @@ function renderNames(){
 }
 
 function renderRecent(){
-  recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty}</span><b>${money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
+  recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty} • ${esc(r.seller||'Melinda')}</span><b>${r.noSale?'NO SALE':money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
 }
 function buyerCard(n,b){
-  const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty}</span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
+  const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty} <small>• ${esc(i.seller||'Melinda')}</small></span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
   return `<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">${money(total(b))}</div></div><div class="items">${items}</div>
   <div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div>
   <div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div>
@@ -469,7 +556,7 @@ function endLive(){
   if(!confirm('End this Live Sale and save it to history?'))return;
   const ended=new Date().toISOString();
   const merch=Object.values(data.buyers).reduce((sum,b)=>sum+total(b),0);
-  const wheelTotal=data.wheelGames.reduce((sum,g)=>sum+g.entries.length*5,0);
+  const wheelTotal=data.wheelGames.reduce((sum,g)=>sum+g.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0),0);
   const bingoTotal=data.bingoGames.reduce((sum,g)=>sum+g.entries.length,0);
   data.currentLive.endedAt=ended;
   data.liveHistory.push({
@@ -495,9 +582,17 @@ function saveWheelCodeWord(){
   g.codeWord=(document.getElementById('wheelCodeWord')?.value||'').trim();
   localStorage.setItem('geg_v3_data',JSON.stringify(data));
 }
+function saveWheelPrice(){
+  const g=currentWheelGame();if(!g)return;
+  let p=Number(document.getElementById('wheelPrice')?.value||5);
+  p=Math.max(1,Math.min(25,p));
+  g.price=p;
+  (g.entries||[]).forEach(e=>{if(!e.free)e.price=p;});
+  syncGameCharges();save();
+}
 function createWheelGame(){
   const id=Math.max(0,...data.wheelGames.map(g=>g.id))+1;
-  data.wheelGames.push({id,status:'FILLING',entries:[],winners:[],codeWord:'',startedAt:new Date().toISOString(),finishedAt:null});
+  data.wheelGames.push({id,status:'FILLING',entries:[],winners:[],codeWord:'',price:5,startedAt:new Date().toISOString(),finishedAt:null});
   save();
   setTimeout(()=>{if(wheelGameSelect){wheelGameSelect.value=String(id);renderGames();}},0);
 }
@@ -508,22 +603,26 @@ function createBingoGame(){
   setTimeout(()=>{if(bingoGameSelect){bingoGameSelect.value=String(id);renderGames();}},0);
 }
 function syncGameCharges(){
-  // Remove every automatically-created game fee, then rebuild from the spots/balls that actually exist.
   Object.values(data.buyers||{}).forEach(b=>{
-    b.items=(b.items||[]).filter(i=>!/^Wheel #\d+ x\d+$/.test(String(i.code||''))&&!/^Bingo #\d+ x\d+$/.test(String(i.code||'')));
+    b.items=(b.items||[]).filter(i=>i.source!=='game'&&!/^Wheel #\d+/.test(String(i.code||''))&&!/^Bingo #\d+/.test(String(i.code||'')));
   });
-  const addGrouped=(games,label,price)=>{
+  const addCharges=(games,label)=>{
     (games||[]).forEach(g=>{
-      const counts={};
-      (g.entries||[]).forEach(e=>{if(e.buyer)counts[e.buyer]=(counts[e.buyer]||0)+1;});
-      Object.entries(counts).forEach(([buyer,qty])=>{
-        const b=ensureBuyer(buyer);
-        b.items.push({code:`${label} #${g.id} x${qty}`,price,qty});
+      const groups={};
+      (g.entries||[]).forEach(e=>{
+        const price=e.free?0:Number(e.price??(label==='Bingo'?1:(g.price||5)));
+        if(!e.buyer||price<=0)return;
+        const key=e.buyer+'|||'+price;
+        if(!groups[key])groups[key]={buyer:e.buyer,price,qty:0};
+        groups[key].qty++;
+      });
+      Object.values(groups).forEach(x=>{
+        ensureBuyer(x.buyer).items.push({code:`${label} #${g.id} x${x.qty}`,price:x.price,qty:x.qty,seller:'Melinda',source:'game'});
       });
     });
   };
-  addGrouped(data.wheelGames,'Wheel',5);
-  addGrouped(data.bingoGames,'Bingo',1);
+  addCharges(data.wheelGames,'Wheel');
+  addCharges(data.bingoGames,'Bingo');
 }
 
 let wheelAssignLocked=false;
@@ -541,14 +640,15 @@ function assignWheelSpots(){
   for(let i=1;i<=14;i++)if(!used.has(i))avail.push(i);
   if(qty<1){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Enter how many spots they want.');}
   if(qty>avail.length){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} wheel spot(s) are left.`);}
-  shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:5}));
+  const spotPrice=Math.max(1,Math.min(25,Number(g.price||5))); const isFree=wheelFree.value==='yes';
+  shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:isFree?0:spotPrice,free:isFree}));
   ensureBuyer(buyer);
   syncGameCharges();
   if(g.entries.length===14)g.status='READY';
   wheelBuyer.value='';
   const wheelSuggestions=document.getElementById('wheelBuyerSuggestions');
   if(wheelSuggestions){wheelSuggestions.innerHTML='';wheelSuggestions.classList.remove('open');}
-  wheelQty.value='1'; save();
+  wheelQty.value='1'; wheelFree.value='no'; save();
   setTimeout(()=>{wheelAssignLocked=false;const b=document.getElementById('assignWheelBtn');if(b)b.disabled=false;},500);
 }
 function assignBingoSpots(){
@@ -624,6 +724,11 @@ function renderGames(){
     const selected=data.wheelGames.find(g=>String(g.id)===String(wgSel?.value))||data.wheelGames[data.wheelGames.length-1];
     wheelCodeWordEl.value=selected?.codeWord||'';
   }
+  const wheelPriceEl=document.getElementById('wheelPrice');
+  if(wheelPriceEl){
+    const selected=data.wheelGames.find(g=>String(g.id)===String(wgSel?.value))||data.wheelGames[data.wheelGames.length-1];
+    wheelPriceEl.value=selected?.price||5;
+  }
   if(bgSel){
     const cur=bgSel.value;
     bgSel.innerHTML=data.bingoGames.map(g=>`<option value="${g.id}">Bingo #${g.id} — ${g.status}</option>`).join('');
@@ -633,10 +738,11 @@ function renderGames(){
   const wg=currentWheelGame(), bg=currentBingoGame();
   if(wg&&document.getElementById('wheelList')){
     const sorted=[...wg.entries].sort((a,b)=>a.spot-b.spot);
-    wheelStatus.innerHTML=`<b>Wheel #${wg.id} — ${wg.status}</b><br>${wg.entries.length}/14 spots • ${14-wg.entries.length} left • ${money(wg.entries.length*5)} sold<br><small>Started ${fmtDT(wg.startedAt)}${wg.finishedAt?` • Finished ${fmtDT(wg.finishedAt)}`:''}</small>`;
-    wheelList.innerHTML=sorted.length?sorted.map(x=>{const i=wg.entries.indexOf(x);return `<div class="entry"><b>${esc(x.buyer)}</b><span>Spot ${x.spot}</span><span>$5</span><button class="danger" style="padding:5px" onclick="removeWheelSpot(${i})">X</button></div>`}).join(''):'<div class="empty">No spots assigned yet.</div>';
+    const wheelSold=wg.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??wg.price??5)),0);
+    wheelStatus.innerHTML=`<b>Wheel #${wg.id} — ${wg.status}</b><br>${wg.entries.length}/14 spots • ${14-wg.entries.length} left • ${money(wheelSold)} sold<br><small>Started ${fmtDT(wg.startedAt)}${wg.finishedAt?` • Finished ${fmtDT(wg.finishedAt)}`:''}</small>`;
+    wheelList.innerHTML=sorted.length?sorted.map(x=>{const i=wg.entries.indexOf(x);return `<div class="entry"><b>${esc(x.buyer)}</b><span>Spot ${x.spot}</span><span>${x.free?'FREE':money(x.price??wg.price??5)}</span><button class="danger" style="padding:5px" onclick="removeWheelSpot(${i})">X</button></div>`}).join(''):'<div class="empty">No spots assigned yet.</div>';
     wheelWinners.innerHTML=wg.winners.length?wg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>Spot ${w.spot}</span><span>${w.prize?esc(w.prize):'Prize not entered'} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateWheelPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleWheelPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeWheelWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
-    wheelQueue.innerHTML='<h3 style="margin-top:16px">Wheel Queue</h3>'+data.wheelGames.map(g=>`<div class="entry"><b>Wheel #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/14 • ${money(g.entries.length*5)}</span></div>`).join('');
+    wheelQueue.innerHTML='<h3 style="margin-top:16px">Wheel Queue</h3>'+data.wheelGames.map(g=>`<div class="entry"><b>Wheel #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/14 • ${money(g.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0))}</span></div>`).join('');
   }
   if(bg&&document.getElementById('bingoList')){
     bingoStatus.innerHTML=`<b>Bingo #${bg.id} — ${bg.status}</b><br>${bg.entries.length}/75 balls • ${75-bg.entries.length} left • ${money(bg.entries.length)} sold<br><small>Started ${fmtDT(bg.startedAt)}${bg.finishedAt?` • Finished ${fmtDT(bg.finishedAt)}`:''}</small>`;
@@ -651,8 +757,8 @@ function renderGames(){
   }
 }
 function exportCSV(){
-  const rows=[['Buyer','Total','Payment','Pickup','Items']];
-  Object.entries(data.buyers).forEach(([n,b])=>rows.push([n,total(b).toFixed(2),b.payment,b.pickup,b.items.map(i=>`${i.code} x${i.qty}`).join(' | ')]));
+  const rows=[['Buyer','Total','Payment','Pickup','Items / Seller']];
+  Object.entries(data.buyers).forEach(([n,b])=>rows.push([n,total(b).toFixed(2),b.payment,b.pickup,b.items.map(i=>`${i.code} x${i.qty} [${i.seller||'Melinda'}]`).join(' | ')]));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');dl(csv,'Green_Eyed_Girl_Totals.csv','text/csv')
 }
 function copyTotals(){
@@ -671,8 +777,8 @@ function resetSale(){
     const freshBuyers={};
     names.forEach(n=>freshBuyers[n]={items:[],payment:'Unpaid',pickup:'Not Picked Up'});
     data.buyers=freshBuyers;
-    data.recent=[]; data.claimHistory=[]; data.claimSeq=0; data.spins=[]; data.wheel=[]; data.bingo=[];
-    data.wheelGames=[{id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null}];
+    data.recent=[]; data.claimHistory=[]; data.claimSeq=0; data.noSales=[]; data.spins=[]; data.wheel=[]; data.bingo=[];
+    data.wheelGames=[{id:1,status:'FILLING',entries:[],winners:[],price:5,startedAt:new Date().toISOString(),finishedAt:null}];
     data.bingoGames=[{id:1,status:'FILLING',entries:[],winners:[],startedAt:new Date().toISOString(),finishedAt:null}];
     data.currentLive=null;
     save();
@@ -683,7 +789,7 @@ function ensureClaimHistory(){
   if(!data.claimHistory)data.claimHistory=[];
   if(!data.claimSeq)data.claimSeq=0;
 }
-function recordClaimHistory(buyer, code, price, qty){
+function recordClaimHistory(buyer, code, price, qty, seller='Melinda'){
   ensureClaimHistory();
   data.claimSeq++;
   data.claimHistory.push({
@@ -692,6 +798,7 @@ function recordClaimHistory(buyer, code, price, qty){
     code:String(code||'').trim(),
     price:Number(price)||0,
     qty:Number(qty)||1,
+    seller:seller||'Melinda',
     at:new Date().toISOString()
   });
 }
@@ -723,7 +830,7 @@ function renderItemClaimHistory(){
   }).join('');
 }
 
-function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames();renderLiveDate()}
+function renderAll(){ensureClaimHistory();renderItemClaimHistory();renderStats();renderNames();renderRecent();renderBuyers();renderPickup();renderGames();renderLiveDate();renderCodeSearchResult()}
 if(!data.v67GameTotalsReconciled){
   syncGameCharges();
   data.v67GameTotalsReconciled=true;
