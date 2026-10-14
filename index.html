@@ -100,7 +100,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
 /* V6.4: visible, touch-friendly buyer search results */
 .buyer-search-wrap{position:relative;width:100%}
 .buyer-search-wrap input{width:100%}
-.buyer-suggestions{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:100;background:#fff;border:2px solid #22a06b;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.18);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.buyer-suggestions{display:none;position:relative;left:auto;right:auto;top:auto;z-index:5;background:#fff;border:2px solid #22a06b;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px;margin-bottom:12px}
 .buyer-suggestions.open{display:block}
 .buyer-suggestion{display:block;width:100%;border:0;border-bottom:1px solid #e7ece9;background:#fff;color:#222;text-align:left;padding:13px 14px;font-size:17px;font-weight:700;cursor:pointer}
 .buyer-suggestion:last-child{border-bottom:0}
@@ -114,7 +114,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <div class="headrow">
     <div class="brand">
       <img src="icon-192.png" alt="GEG">
-      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 6.9</p></div>
+      <div><h1>Green Eyed Girl Sales</h1><p>Live Sale Manager • Version 7.0</p></div>
     </div>
     <button id="installBtn" class="install">Install App</button>
   </div>
@@ -186,7 +186,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
   <section id="buyers" class="view">
     <div class="card">
       <h2>👥 Buyers & Totals</h2>
-      <input class="search" id="buyerSearch" placeholder="Search buyer..." oninput="renderBuyers()">
+      <input class="search" id="buyerSearch" placeholder="🔎 Search buyer totals by name..." oninput="renderBuyers()">
       <div id="buyersList"></div>
     </div>
   </section>
@@ -220,8 +220,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <select id="wheelGameSelect" onchange="renderGames()"></select>
         <div class="buyer-search-wrap"><input id="wheelBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="wheelBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="wheelQty" type="number" min="1" max="14" value="1" inputmode="numeric">
-        <button id="assignWheelBtn" class="primary" onclick="assignWheelSpots()">Assign Spots</button>
-      </div>
+        </div><div class="actions" style="margin-top:14px"><button id="assignWheelBtn" class="primary" onclick="assignWheelSpots()">ASSIGN WHEEL SPOTS</button></div>
       <div class="winner" id="wheelStatus"></div>
       <div id="wheelList"></div>
 
@@ -230,6 +229,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <div class="quickrow">
           <input id="wheelWinningSpot" type="number" min="1" max="14" placeholder="Winning #">
           <input id="wheelPrize" placeholder="Prize chosen (can add later)">
+          <select id="wheelPrizeSeller" onchange="toggleOtherSeller('wheel')"><option>Melinda</option><option>Sherry</option><option>Lexi</option><option value="Other">Other seller...</option></select>
+          <input id="wheelPrizeSellerOther" placeholder="Seller name, e.g. Mama" style="display:none">
           <button class="pink" onclick="addWheelWinner()">ADD WINNER</button>
         </div>
         <div id="wheelWinners"></div>
@@ -246,10 +247,9 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
       </div>
       <div class="quickrow" style="margin-top:10px">
         <select id="bingoGameSelect" onchange="renderGames()"></select>
-        <select id="bingoBuyer"><option value="">Choose buyer...</option></select>
+        <div class="buyer-search-wrap"><input id="bingoBuyer" placeholder="Start typing buyer name..." autocomplete="off"><div id="bingoBuyerSuggestions" class="buyer-suggestions"></div></div>
         <input id="bingoQty" type="number" min="1" max="75" value="1" inputmode="numeric">
-        <button id="assignBingoBtn" class="primary" onclick="assignBingoSpots()">Assign Balls</button>
-      </div>
+        </div><div class="actions" style="margin-top:14px"><button id="assignBingoBtn" class="primary" onclick="assignBingoSpots()">ASSIGN BINGO BALLS</button></div>
       <div class="winner" id="bingoStatus"></div>
       <div id="bingoList"></div>
 
@@ -258,6 +258,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <div class="quickrow">
           <input id="bingoWinningBall" placeholder="Example: G52">
           <input id="bingoPrize" placeholder="Prize chosen (can add later)">
+          <select id="bingoPrizeSeller" onchange="toggleOtherSeller('bingo')"><option>Melinda</option><option>Sherry</option><option>Lexi</option><option value="Other">Other seller...</option></select>
+          <input id="bingoPrizeSellerOther" placeholder="Seller name, e.g. Mama" style="display:none">
           <button class="pink" onclick="addBingoWinner()">ADD WINNER</button>
         </div>
         <div id="bingoWinners"></div>
@@ -313,6 +315,7 @@ if(!data.bingoGames.length)data.bingoGames.push({id:1,status:'FILLING',entries:[
 if(!data.bingoHistory)data.bingoHistory=[];
 if(!data.noSales)data.noSales=[];
 Object.values(data.buyers||{}).forEach(b=>(b.items||[]).forEach(i=>{if(!i.seller)i.seller='Melinda';}));
+Object.values(data.buyers||{}).forEach(b=>{if(b.credit===undefined)b.credit=0;});
 (data.wheelGames||[]).forEach(g=>{if(!g.price)g.price=5;(g.entries||[]).forEach(e=>{if(e.price===undefined)e.price=g.price||5;if(e.free===undefined)e.free=false;});});
 let lastBuyer='';
 let keepItem=false;
@@ -320,8 +323,13 @@ let keepItem=false;
 function money(n){return '$'+Number(n||0).toFixed(2)}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function save(){localStorage.setItem('geg_v3_data',JSON.stringify(data));renderAll()}
-function ensureBuyer(n){n=n.trim();if(!n)return null;if(!data.buyers[n])data.buyers[n]={items:[],payment:'Unpaid',pickup:'Waiting'};if(!data.customerDirectory)data.customerDirectory=[];if(!data.customerDirectory.some(x=>x.toLowerCase()===n.toLowerCase()))data.customerDirectory.push(n);return data.buyers[n]}
-function total(b){return b.items.reduce((s,i)=>s+Number(i.price)*Number(i.qty),0)}
+function ensureBuyer(n){n=n.trim();if(!n)return null;const ex=Object.keys(data.buyers||{}).find(x=>x.toLowerCase()===n.toLowerCase());if(ex)n=ex;if(!data.buyers[n])data.buyers[n]={items:[],payment:'Unpaid',pickup:'Waiting',credit:0};if(data.buyers[n].credit===undefined)data.buyers[n].credit=0;if(!data.customerDirectory)data.customerDirectory=[];if(!data.customerDirectory.some(x=>x.toLowerCase()===n.toLowerCase()))data.customerDirectory.push(n);return data.buyers[n]}
+function purchaseTotal(b){return (b.items||[]).reduce((a,i)=>a+Number(i.price||0)*Number(i.qty||1),0)}
+function creditAmount(b){return Math.max(0,Number(b.credit)||0)}
+function creditUsed(b){return Math.min(purchaseTotal(b),creditAmount(b))}
+function creditLeft(b){return Math.max(0,creditAmount(b)-purchaseTotal(b))}
+function total(b){return Math.max(0,purchaseTotal(b)-creditAmount(b))}
+function setBuyerCredit(n){const b=data.buyers[n];if(!b)return;const v=prompt('Credit balance for '+n+':',creditAmount(b).toFixed(2));if(v===null)return;const a=Number(v);if(!Number.isFinite(a)||a<0)return alert('Enter a valid credit amount.');b.credit=a;save()}
 
 function showView(id,btn){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -409,26 +417,18 @@ function toggleItemLock(){
   if(keepItem){b.textContent='🔒 KEEP ITEM ON';b.classList.add('locked');}
   else{b.textContent='🔓 KEEP ITEM OFF';b.classList.remove('locked');}
 }
-function quickAddBuyer(){
-  const el=document.getElementById('newBuyerName');
-  const n=el.value.trim();
-  if(!n)return alert('Enter a buyer name.');
-  ensureBuyer(n);
-  el.value='';
-  save();
-  const sel=document.getElementById('buyerName');
-  sel.value=n;
-}
+function quickAddBuyer(){const el=document.getElementById('newBuyerName'),raw=el.value.trim();if(!raw)return alert('Enter a buyer name.');const ex=allBuyerNames().find(x=>x.toLowerCase()===raw.toLowerCase());const n=ex||raw;ensureBuyer(n);el.value='';save();document.getElementById('buyerName').value=n;if(ex)alert(ex+' is already saved in the master buyer list.');}
 function removeItem(n,i){data.buyers[n].items.splice(i,1);save()}
 function setPayment(n,v){data.buyers[n].payment=v;save()}
 function setPickup(n,v){data.buyers[n].pickup=v;save()}
-function removeBuyer(n){if(confirm('Remove '+n+' and all claims?')){delete data.buyers[n];save()}}
+function removeBuyer(n){if(!confirm('Permanently delete '+n+' from the master buyer list?'))return;delete data.buyers[n];data.customerDirectory=(data.customerDirectory||[]).filter(x=>x.toLowerCase()!==n.toLowerCase());data.recent=(data.recent||[]).filter(r=>r.buyer!==n);save()}
+function renameBuyer(oldName){const b=data.buyers[oldName];if(!b)return;const v=prompt('Edit buyer name:',oldName);if(v===null)return;const nn=v.trim();if(!nn||nn===oldName)return;const dup=allBuyerNames().find(x=>x.toLowerCase()===nn.toLowerCase()&&x.toLowerCase()!==oldName.toLowerCase());if(dup)return alert(dup+' already exists.');data.buyers[nn]=b;delete data.buyers[oldName];data.customerDirectory=(data.customerDirectory||[]).map(x=>x.toLowerCase()===oldName.toLowerCase()?nn:x);if(!data.customerDirectory.some(x=>x.toLowerCase()===nn.toLowerCase()))data.customerDirectory.push(nn);(data.recent||[]).forEach(r=>{if(r.buyer===oldName)r.buyer=nn});(data.claimHistory||[]).forEach(r=>{if(r.buyer===oldName)r.buyer=nn});(data.wheelGames||[]).forEach(g=>(g.entries||[]).forEach(e=>{if(e.buyer===oldName)e.buyer=nn}));(data.bingoGames||[]).forEach(g=>(g.entries||[]).forEach(e=>{if(e.buyer===oldName)e.buyer=nn}));syncGameCharges();save()}
 
 function renderStats(){
   const es=Object.entries(data.buyers);let sales=0,unpaid=0,pick=0;
   const sellerTotals={Melinda:0,Lexi:0,Sherry:0};
   es.forEach(([n,b])=>{
-    const t=total(b);sales+=t;if(b.payment!=='Paid')unpaid+=t;if(b.pickup!=='Picked Up')pick++;
+    sales+=purchaseTotal(b);if(b.payment!=='Paid')unpaid+=total(b);if(b.pickup!=='Picked Up')pick++;
     (b.items||[]).forEach(i=>{const seller=i.seller||'Melinda';if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=Number(i.price||0)*Number(i.qty||0);});
   });
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
@@ -468,27 +468,15 @@ function setupBuyerSearch(inputId,boxId){
   input.addEventListener('keydown',e=>{if(e.key==='Escape'){close();input.blur();}});
   document.addEventListener('pointerdown',e=>{if(e.target!==input&&!box.contains(e.target))close();});
 }
-function renderNames(){
-  setupBuyerSearch('buyerName','mainBuyerSuggestions');
-  setupBuyerSearch('wheelBuyer','wheelBuyerSuggestions');
-  const bingoSel=document.getElementById('bingoBuyer');
-  if(bingoSel){
-    const current=bingoSel.value;
-    const names=Object.keys(data.buyers||{}).sort((a,b)=>a.localeCompare(b));
-    bingoSel.innerHTML='<option value="">Choose buyer...</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-    if(names.includes(current))bingoSel.value=current;
-  }
-}
+function renderNames(){setupBuyerSearch('buyerName','mainBuyerSuggestions');setupBuyerSearch('wheelBuyer','wheelBuyerSuggestions');setupBuyerSearch('bingoBuyer','bingoBuyerSuggestions');}
 
 function renderRecent(){
   recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty} • ${esc(r.seller||'Melinda')}</span><b>${r.noSale?'NO SALE':money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
 }
 function buyerCard(n,b){
-  const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty} <small>• ${esc(i.seller||'Melinda')}</small></span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
-  return `<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">${money(total(b))}</div></div><div class="items">${items}</div>
-  <div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div>
-  <div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div>
-  <div class="actions"><button class="danger" onclick='removeBuyer(${JSON.stringify(n)})'>Remove Buyer</button></div></div>`;
+ const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty} <small>• ${esc(i.seller||'Melinda')}</small></span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
+ const cr=creditAmount(b)>0?`<div class="note">Purchases <b>${money(purchaseTotal(b))}</b> • Credit <b>−${money(creditUsed(b))}</b> • Due <b>${money(total(b))}</b>${creditLeft(b)>0?` • Credit left <b>${money(creditLeft(b))}</b>`:''}</div>`:'';
+ return `<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">${money(total(b))}</div></div>${cr}<div class="items">${items}</div><div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div><div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div><div class="actions"><button class="light" onclick='renameBuyer(${JSON.stringify(n)})'>EDIT NAME</button><button class="light" onclick='setBuyerCredit(${JSON.stringify(n)})'>CREDIT</button><button class="danger" onclick='removeBuyer(${JSON.stringify(n)})'>DELETE BUYER</button></div></div>`;
 }
 function renderBuyers(){
   const q=(buyerSearch?.value||'').toLowerCase();
@@ -542,9 +530,7 @@ function currentBingoGame(){
   const id=sel?Number(sel.value):0;
   return data.bingoGames.find(g=>g.id===id)||data.bingoGames[data.bingoGames.length-1];
 }
-function fillGameBuyerDropdowns(){
-  renderNames();
-}
+function fillGameBuyerDropdowns(){}
 
 function startLive(){
   if(data.currentLive)return alert('A Live is already running.');
@@ -673,15 +659,18 @@ function assignBingoSpots(){
 }
 function markWheelReady(){const g=currentWheelGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
 function markBingoReady(){const g=currentBingoGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
+function toggleOtherSeller(kind){const s=document.getElementById(kind+'PrizeSeller'),o=document.getElementById(kind+'PrizeSellerOther');if(o)o.style.display=s&&s.value==='Other'?'block':'none'}
+function chosenPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller');if(!s||s.value!=='Other')return s?s.value:'Melinda';return (document.getElementById(kind+'PrizeSellerOther')?.value||'').trim()||'Other'}
+function clearPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller'),o=document.getElementById(kind+'PrizeSellerOther');if(s)s.value='Melinda';if(o){o.value='';o.style.display='none'}}
 function addWheelWinner(){
   const g=currentWheelGame(),spot=parseInt(wheelWinningSpot.value,10);
   if(!spot||spot<1||spot>14)return alert('Enter a winning spot from 1 to 14.');
   const entry=g.entries.find(x=>x.spot===spot);
   if(!entry)return alert(`Spot ${spot} was not assigned in this game.`);
   if(g.winners.some(w=>w.spot===spot)&&!confirm(`Spot ${spot} already won this game. Add it again?`))return;
-  g.winners.push({place:g.winners.length+1,spot,buyer:entry.buyer,prize:wheelPrize.value.trim(),prizeGiven:false,recordedAt:new Date().toISOString()});
+  g.winners.push({place:g.winners.length+1,spot,buyer:entry.buyer,prize:wheelPrize.value.trim(),prizeSeller:chosenPrizeSeller('wheel'),prizeGiven:false,recordedAt:new Date().toISOString()});
   g.status='COMPLETED'; g.finishedAt=new Date().toISOString();
-  wheelWinningSpot.value='';wheelPrize.value='';save();
+  wheelWinningSpot.value='';wheelPrize.value='';clearPrizeSeller('wheel');save();
 }
 function addBingoWinner(){
   const g=currentBingoGame(),ball=bingoWinningBall.value.trim().toUpperCase();
@@ -689,9 +678,9 @@ function addBingoWinner(){
   const entry=g.entries.find(x=>x.ball.toUpperCase()===ball);
   if(!entry)return alert(`${ball} was not assigned in this game.`);
   if(g.winners.some(w=>w.ball===ball)&&!confirm(`${ball} already won this game. Add it again?`))return;
-  g.winners.push({place:g.winners.length+1,ball,buyer:entry.buyer,prize:bingoPrize.value.trim(),prizeGiven:false,recordedAt:new Date().toISOString()});
+  g.winners.push({place:g.winners.length+1,ball,buyer:entry.buyer,prize:bingoPrize.value.trim(),prizeSeller:chosenPrizeSeller('bingo'),prizeGiven:false,recordedAt:new Date().toISOString()});
   g.status='COMPLETED'; g.finishedAt=new Date().toISOString();
-  bingoWinningBall.value='';bingoPrize.value='';save();
+  bingoWinningBall.value='';bingoPrize.value='';clearPrizeSeller('bingo');save();
 }
 function updateWheelPrize(i){
   const g=currentWheelGame(); const v=prompt('Prize chosen:',g.winners[i].prize||'');
@@ -741,13 +730,13 @@ function renderGames(){
     const wheelSold=wg.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??wg.price??5)),0);
     wheelStatus.innerHTML=`<b>Wheel #${wg.id} — ${wg.status}</b><br>${wg.entries.length}/14 spots • ${14-wg.entries.length} left • ${money(wheelSold)} sold<br><small>Started ${fmtDT(wg.startedAt)}${wg.finishedAt?` • Finished ${fmtDT(wg.finishedAt)}`:''}</small>`;
     wheelList.innerHTML=sorted.length?sorted.map(x=>{const i=wg.entries.indexOf(x);return `<div class="entry"><b>${esc(x.buyer)}</b><span>Spot ${x.spot}</span><span>${x.free?'FREE':money(x.price??wg.price??5)}</span><button class="danger" style="padding:5px" onclick="removeWheelSpot(${i})">X</button></div>`}).join(''):'<div class="empty">No spots assigned yet.</div>';
-    wheelWinners.innerHTML=wg.winners.length?wg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>Spot ${w.spot}</span><span>${w.prize?esc(w.prize):'Prize not entered'} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateWheelPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleWheelPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeWheelWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
+    wheelWinners.innerHTML=wg.winners.length?wg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>Spot ${w.spot}</span><span>${w.prize?esc(w.prize):'Prize not entered'} • Seller: ${esc(w.prizeSeller||'Melinda')} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateWheelPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleWheelPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeWheelWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
     wheelQueue.innerHTML='<h3 style="margin-top:16px">Wheel Queue</h3>'+data.wheelGames.map(g=>`<div class="entry"><b>Wheel #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/14 • ${money(g.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0))}</span></div>`).join('');
   }
   if(bg&&document.getElementById('bingoList')){
     bingoStatus.innerHTML=`<b>Bingo #${bg.id} — ${bg.status}</b><br>${bg.entries.length}/75 balls • ${75-bg.entries.length} left • ${money(bg.entries.length)} sold<br><small>Started ${fmtDT(bg.startedAt)}${bg.finishedAt?` • Finished ${fmtDT(bg.finishedAt)}`:''}</small>`;
     bingoList.innerHTML=bg.entries.length?bg.entries.map((x,i)=>`<div class="entry"><b>${esc(x.buyer)}</b><span>${esc(x.ball)}</span><span>$1</span><button class="danger" style="padding:5px" onclick="removeBingoSpot(${i})">X</button></div>`).join(''):'<div class="empty">No balls assigned yet.</div>';
-    bingoWinners.innerHTML=bg.winners.length?bg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>${esc(w.ball)}</span><span>${w.prize?esc(w.prize):'Prize not entered'} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateBingoPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleBingoPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeBingoWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
+    bingoWinners.innerHTML=bg.winners.length?bg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>${esc(w.ball)}</span><span>${w.prize?esc(w.prize):'Prize not entered'} • Seller: ${esc(w.prizeSeller||'Melinda')} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateBingoPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleBingoPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeBingoWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
     bingoQueue.innerHTML='<h3 style="margin-top:16px">Bingo Queue</h3>'+data.bingoGames.map(g=>`<div class="entry"><b>Bingo #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/75 • ${money(g.entries.length)}</span></div>`).join('');
   }
   const ls=document.getElementById('liveSessionStatus');
