@@ -205,10 +205,9 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
     </div>
   </div>
 
-  <div class="card"><h2>🎄 Holiday Drawing Tickets — This Live</h2>
-    <div class="note">Manually add or remove tickets for each buyer. Tickets are saved with this Live, separately from purchases. No automatic ticket rules are assumed.</div>
-    <div class="grid"><div><label>Buyer</label><select id="ticketBuyer"></select></div><div><label>Tickets to add / remove</label><input id="ticketQty" type="number" value="1" step="1"></div></div>
-    <div class="actions"><button class="primary" onclick="changeHolidayTickets()">SAVE TICKETS</button></div><div id="ticketSummary"></div>
+  <div class="card"><h2>🎄 Appreciation Sale Tickets — This Live</h2>
+    <div class="note">Automatic: one ticket per full $50 spent by each buyer in this Live. Merchandise, paid Wheel spots and Bingo spots combine; free spots do not count. Leftover dollars do not roll into another Live. Purchases entered before START LIVE are not included in this Live's ticket calculation.</div>
+    <div id="ticketSummary"></div>
   </div>
   <div class="games">
     <div class="gamebox">
@@ -225,7 +224,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <div><label>Price Per Spot ($1–$25)</label><input id="wheelPrice" type="number" min="1" max="25" value="5" inputmode="decimal" onchange="saveWheelSettings()"></div>
       </div>
       <div class="two" style="margin-top:10px">
-        <div><label>Game Sales Go To</label><select id="wheelGameSeller" onchange="saveWheelSettings()"><option>Melinda</option><option>Sherry</option><option>Lexi</option><option>Mama</option></select></div>
+        <div><label>Wheel setup seller (prize seller chosen after spin controls proceeds)</label><select id="wheelGameSeller" onchange="saveWheelSettings()"><option>Melinda</option><option>Sherry</option><option>Lexi</option><option>Mama</option></select></div>
         <div><label>Free Spot</label><select id="wheelFree"><option value="no">Charge buyer</option><option value="yes">FREE — $0</option></select></div>
       </div>
       <div class="quickrow" style="margin-top:10px">
@@ -242,7 +241,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
           <div class="stat"><small>SHERRY</small><b id="spinSherry">$0.00</b></div>
           <div class="stat"><small>MAMA</small><b id="spinMama">$0.00</b></div>
         </div>
-        <div class="note">Each completed wheel's collected amount is credited to the seller of the winning prize. If a wheel has multiple winners, its collected amount is divided equally between those winners.</div>
+        <div id="spinOtherSellers" class="note"></div>
+        <div class="note">A Wheel's collected amount stays unassigned until a winner's prize seller is recorded. If a Wheel has multiple winners, its collected amount is divided equally between their prize sellers. Use the Seller button on a winner to correct an assignment.</div>
       </div>
       <div id="wheelList"></div>
 
@@ -251,7 +251,7 @@ button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;cursor:poin
         <div class="quickrow">
           <input id="wheelWinningSpot" type="number" min="1" max="25" placeholder="Winning #">
           <input id="wheelPrize" placeholder="Prize chosen (can add later)">
-          <select id="wheelPrizeSeller" onchange="toggleOtherSeller('wheel')"><option>Melinda</option><option>Sherry</option><option>Lexi</option><option value="Other">Other seller...</option></select>
+          <select id="wheelPrizeSeller" onchange="toggleOtherSeller('wheel')"><option value="">Choose prize seller...</option><option>Melinda</option><option>Sherry</option><option>Lexi</option><option>Mama</option><option value="Other">Other seller...</option></select>
           <input id="wheelPrizeSellerOther" placeholder="Seller name, e.g. Mama" style="display:none">
           <button class="pink" onclick="addWheelWinner()">ADD WINNER</button>
         </div>
@@ -381,7 +381,7 @@ function addClaim(){
   const seller=document.getElementById('itemSeller').value||'Melinda';
   if(!n)return alert('Choose a buyer.');
   if(isNaN(p))return alert('Enter price.');
-  const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q,seller});
+  const b=ensureBuyer(n); b.items.push({code:c,price:p,qty:q,seller,liveId:data.currentLive?.id||null});
   recordClaimHistory(n,c,p,q,seller);
   data.recent.unshift({buyer:n,code:c,price:p,qty:q,seller,time:Date.now()});
   lastBuyer=n;
@@ -464,8 +464,10 @@ function renderStats(){
   const sellerTotals={Melinda:0,Lexi:0,Sherry:0,Mama:0};
   es.forEach(([n,b])=>{
     sales+=purchaseTotal(b);if(b.payment!=='Paid')unpaid+=total(b);if(b.pickup!=='Picked Up')pick++;
-    (b.items||[]).forEach(i=>{const seller=i.seller||'Melinda',amt=Number(i.price||0)*Number(i.qty||0);if(seller==='Split Melinda/Sherry'){sellerTotals.Melinda+=amt/2;sellerTotals.Sherry+=amt/2}else if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=amt;});
+    (b.items||[]).forEach(i=>{if(i.source==='game')return;const seller=i.seller||'Melinda',amt=Number(i.price||0)*Number(i.qty||0);if(seller==='Split Melinda/Sherry'){sellerTotals.Melinda+=amt/2;sellerTotals.Sherry+=amt/2}else if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=amt;});
   });
+  (data.bingoGames||[]).forEach(g=>{const seller=g.gameSeller||'Melinda';if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=(g.entries||[]).reduce((a,e)=>a+Number(e.price??g.price??1),0)});
+  Object.entries(wheelSellerTotals()).forEach(([seller,amount])=>{if(sellerTotals[seller]!==undefined)sellerTotals[seller]+=amount});
   sSales.textContent=money(sales);sUnpaid.textContent=money(unpaid);sBuyers.textContent=es.length;sPickup.textContent=pick;
   if(document.getElementById('sellerMelinda'))sellerMelinda.textContent=money(sellerTotals.Melinda);
   if(document.getElementById('sellerLexi'))sellerLexi.textContent=money(sellerTotals.Lexi);
@@ -510,15 +512,16 @@ function renderRecent(){
   recentClaims.innerHTML=data.recent.length?data.recent.map(r=>`<div class="item"><span><b>${esc(r.buyer)}</b> • ${esc(r.code)} x${r.qty} • ${esc(r.seller||'Melinda')}</span><b>${r.noSale?'NO SALE':money(r.price*r.qty)}</b></div>`).join(''):'<div class="empty">No claims yet.</div>';
 }
 function buyerCard(n,b){
- const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty} <small>• ${esc(i.seller||'Melinda')}</small></span><span>${money(i.price*i.qty)} <button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button></span></div>`).join(''):'<div class="empty">No claims.</div>';
+ const items=b.items.length?b.items.map((i,idx)=>`<div class="item"><span>${esc(i.code)} x${i.qty} <small>• ${i.source==='game'?'Game spot':esc(i.seller||'Melinda')}</small></span><span>${money(i.price*i.qty)} ${i.source==='game'?'Remove in game screen':`<button class="danger" style="padding:4px 7px" onclick='removeItem(${JSON.stringify(n)},${idx})'>X</button>`}</span></div>`).join(''):'<div class="empty">No claims.</div>';
  const cr=creditAmount(b)>0?`<div class="note">Purchases <b>${money(purchaseTotal(b))}</b> • Credit <b>−${money(creditUsed(b))}</b> • Due <b>${money(total(b))}</b>${creditLeft(b)>0?` • Credit left <b>${money(creditLeft(b))}</b>`:''}</div>`:'';
  return `<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">${money(total(b))}</div></div>${cr}<div class="items">${items}</div><div class="two"><div><label>Payment</label><select onchange='setPayment(${JSON.stringify(n)},this.value)'><option ${b.payment==='Unpaid'?'selected':''}>Unpaid</option><option ${b.payment==='Paid'?'selected':''}>Paid</option><option ${b.payment==='Cash'?'selected':''}>Cash</option></select></div><div><label>Pickup</label><select onchange='setPickup(${JSON.stringify(n)},this.value)'><option ${b.pickup==='Waiting'?'selected':''}>Waiting</option><option ${b.pickup==='Ready'?'selected':''}>Ready</option><option ${b.pickup==='Picked Up'?'selected':''}>Picked Up</option></select></div></div><div class="actions"><button class="light" onclick='renameBuyer(${JSON.stringify(n)})'>EDIT NAME</button><button class="light" onclick='setBuyerCredit(${JSON.stringify(n)})'>CREDIT</button><button class="danger" onclick='removeBuyer(${JSON.stringify(n)})'>DELETE BUYER</button></div></div>`;
 }
 function renderBuyers(){
   const q=(buyerSearch?.value||'').toLowerCase();
-  const es=Object.entries(data.buyers).filter(([n])=>n.toLowerCase().includes(q)).sort((a,b)=>a[0].localeCompare(b[0]));
-  buyersList.innerHTML=es.length?es.map(([n,b])=>buyerCard(n,b)).join(''):'<div class="empty">No buyers found.</div>';
+  const es=allBuyerNames().filter(n=>n.toLowerCase().includes(q)).map(n=>[n,data.buyers[n]||{items:[],payment:'Unpaid',pickup:'Waiting',credit:0}]);
+  buyersList.innerHTML=es.length?es.map(([n,b])=>data.buyers[n]?buyerCard(n,b):`<div class="buyer"><div class="top"><div class="name">${esc(n)}</div><div class="total">Master list • no current purchases</div></div><button class="primary" onclick='activateBuyer(${JSON.stringify(n)})'>OPEN BUYER</button></div>`).join(''):'<div class="empty">No buyers found.</div>';
 }
+function activateBuyer(n){ensureBuyer(n);save()}
 function renderPickup(){
   const es=Object.entries(data.buyers).sort((a,b)=>a[0].localeCompare(b[0]));
   pickupList.innerHTML=es.length?es.map(([n,b])=>`<div class="buyer"><div class="top"><b>${esc(n)}</b><b>${money(total(b))}</b></div>
@@ -569,14 +572,22 @@ function currentBingoGame(){
 function fillGameBuyerDropdowns(){}
 
 function snapshotBaseline(){
-  return {buyers:Object.fromEntries(Object.entries(data.buyers||{}).map(([n,b])=>[n,(b.items||[]).length])),
+  return {buyers:Object.fromEntries(Object.entries(data.buyers||{}).map(([n,b])=>[n,(b.items||[]).filter(i=>i.source!=='game').length])),
     wheel:Object.fromEntries((data.wheelGames||[]).map(g=>[g.id,(g.entries||[]).length])),
     bingo:Object.fromEntries((data.bingoGames||[]).map(g=>[g.id,(g.entries||[]).length])),
     noSales:(data.noSales||[]).length};
 }
+function liveSpendByBuyer(){
+  const spend={};if(!data.currentLive?.baseline)return spend;
+  const base=data.currentLive.baseline;
+  Object.entries(data.buyers||{}).forEach(([n,b])=>{const goods=(b.items||[]).filter(i=>i.source!=='game');spend[n]=(base.trackingVersion?goods.filter(i=>i.liveId===data.currentLive.id):goods.slice(base.buyers?.[n]||0)).reduce((a,i)=>a+Math.round(Number(i.price||0)*100)*Number(i.qty||1),0)});
+  [['wheelGames','wheel',5],['bingoGames','bingo',1]].forEach(([key,baseline,price])=>(data[key]||[]).forEach(g=>(base.trackingVersion?(g.entries||[]).filter(e=>e.liveId===data.currentLive.id):(g.entries||[]).slice(base[baseline]?.[g.id]||0)).forEach(e=>{if(!e.buyer)return;spend[e.buyer]=(spend[e.buyer]||0)+Math.round(Number(e.free?0:(e.price??g.price??price))*100)})));
+  return spend;
+}
+function liveTicketRows(){return Object.entries(liveSpendByBuyer()).filter(([,cents])=>cents>0).sort((a,b)=>a[0].localeCompare(b[0])).map(([name,cents])=>({name,cents,tickets:Math.floor(cents/5000),toNext:5000-cents%5000,prior:(data.liveHistory||[]).reduce((sum,l)=>sum+Number(l.holidayTickets?.[name]||0),0)}))}
 function startLive(){
   if(data.currentLive)return alert('A Live is already running.');
-  data.currentLive={id:Date.now(),startedAt:new Date().toISOString(),endedAt:null,baseline:snapshotBaseline()};
+  data.currentLive={id:Date.now(),startedAt:new Date().toISOString(),endedAt:null,baseline:{...snapshotBaseline(),trackingVersion:1}};
   data.holidayTickets={};save();
 }
 function endLive(){
@@ -584,10 +595,10 @@ function endLive(){
   const base=data.currentLive.baseline;
   if(!base)return alert('This Live was started in an older app version. To protect previous sales, download a backup, end this session only after starting a fresh sale, or contact support. No archive was created.');
   const buyers={};
-  Object.entries(data.buyers||{}).forEach(([n,b])=>{const items=(b.items||[]).slice(base.buyers?.[n]||0);if(items.length)buyers[n]={...b,items:JSON.parse(JSON.stringify(items)),credit:0};});
-  const games=(key,baseline)=> (data[key]||[]).map(g=>({...g,entries:(g.entries||[]).slice(baseline?.[g.id]||0)})).filter(g=>g.entries.length);
+  Object.entries(data.buyers||{}).forEach(([n,b])=>{const items=base.trackingVersion?(b.items||[]).filter(i=>i.liveId===data.currentLive.id):(b.items||[]).slice(base.buyers?.[n]||0);if(items.length)buyers[n]={...b,items:JSON.parse(JSON.stringify(items)),credit:0};});
+  const games=(key,baseline)=> (data[key]||[]).map(g=>({...g,entries:base.trackingVersion?(g.entries||[]).filter(e=>e.liveId===data.currentLive.id):(g.entries||[]).slice(baseline?.[g.id]||0)})).filter(g=>g.entries.length);
   const wheelGames=games('wheelGames',base.wheel),bingoGames=games('bingoGames',base.bingo);
-  const tickets=Object.fromEntries(Object.entries(data.holidayTickets||{}).filter(([,n])=>Number(n)>0));
+  const tickets=Object.fromEntries(liveTicketRows().filter(r=>r.tickets>0).map(r=>[r.name,r.tickets]));
   const count=Object.values(buyers).reduce((a,b)=>a+b.items.length,0);
   if(!count&&!wheelGames.length&&!bingoGames.length&&!Object.keys(tickets).length){
     if(!confirm('No purchases, games, or tickets were recorded during this Live. End without adding an empty archive?'))return;
@@ -600,17 +611,11 @@ function endLive(){
   data.liveHistory.push({id:data.currentLive.id,startedAt:data.currentLive.startedAt,endedAt:new Date().toISOString(),buyers,wheelGames,bingoGames,holidayTickets:tickets,noSales:(data.noSales||[]).slice(base.noSales||0),grossTotal:gross,amountDue:gross,wheelTotal,bingoTotal});
   data.currentLive=null;data.holidayTickets={};save();
 }
-function changeHolidayTickets(){
-  if(!data.currentLive)return alert('Start a Live before tracking holiday tickets.');
-  const n=document.getElementById('ticketBuyer')?.value,q=Number(document.getElementById('ticketQty')?.value);
-  if(!n||!Number.isInteger(q)||q===0)return alert('Choose a buyer and enter a whole number of tickets. Use a negative number to remove tickets.');
-  data.holidayTickets[n]=Math.max(0,(Number(data.holidayTickets[n])||0)+q);save();
-}
 function renderHolidayTickets(){
-  const sel=document.getElementById('ticketBuyer'),box=document.getElementById('ticketSummary');if(!sel||!box)return;
-  const old=sel.value;sel.innerHTML='<option value="">Choose buyer...</option>'+allBuyerNames().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');sel.value=old;
-  const entries=Object.entries(data.holidayTickets||{}).filter(([,q])=>q>0).sort((a,b)=>a[0].localeCompare(b[0]));
-  box.innerHTML='<b>Total tickets: '+entries.reduce((a,[,q])=>a+q,0)+'</b>'+entries.map(([n,q])=>`<div class="item">${esc(n)} <b>${q} ticket(s)</b></div>`).join('');
+  const box=document.getElementById('ticketSummary');if(!box)return;
+  if(!data.currentLive){box.innerHTML='<div class="empty">Start a Live to track new purchases automatically.</div>';return}
+  const rows=liveTicketRows();
+  box.innerHTML='<b>Earned this Live: '+rows.reduce((a,r)=>a+r.tickets,0)+' tickets</b>'+(rows.map(r=>`<div class="item"><span><b>${esc(r.name)}</b> • ${money(r.cents/100)} this Live • ${money(r.toNext/100)} to next</span><span>+${r.tickets} this Live • ${r.prior} prior • <b>${r.prior+r.tickets} total</b></span></div>`).join('')||'<div class="empty">No new paid purchases this Live.</div>');
 }
 function confirmCreateWheelGame(){
   if(confirm('Start a NEW wheel game?'))createWheelGame();
@@ -662,12 +667,12 @@ function syncGameCharges(){
       (g.entries||[]).forEach(e=>{
         const price=e.free?0:Number(e.price??g.price??(label==='Bingo'?1:5));
         if(!e.buyer||price<=0)return;
-        const key=e.buyer+'|||'+price;
-        if(!groups[key])groups[key]={buyer:e.buyer,price,qty:0};
+        const key=e.buyer+'|||'+price+'|||'+(e.liveId||'');
+        if(!groups[key])groups[key]={buyer:e.buyer,price,qty:0,liveId:e.liveId||null};
         groups[key].qty++;
       });
       Object.values(groups).forEach(x=>{
-        ensureBuyer(x.buyer).items.push({code:`${label} #${g.id} x${x.qty}`,price:x.price,qty:x.qty,seller:(g.gameSeller||'Melinda'),source:'game'});
+        ensureBuyer(x.buyer).items.push({code:`${label} #${g.id} x${x.qty}`,price:x.price,qty:x.qty,seller:(g.gameSeller||'Melinda'),source:'game',liveId:x.liveId});
       });
     });
   };
@@ -691,7 +696,7 @@ function assignWheelSpots(){
   if(qty<1){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Enter how many spots they want.');}
   if(qty>avail.length){wheelAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} wheel spot(s) are left.`);}
   const spotPrice=Math.max(1,Math.min(25,Number(g.price||5))); const isFree=wheelFree.value==='yes';
-  shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:isFree?0:spotPrice,free:isFree}));
+  shuffle(avail).slice(0,qty).sort((a,b)=>a-b).forEach(spot=>g.entries.push({buyer,spot,price:isFree?0:spotPrice,free:isFree,liveId:data.currentLive?.id||null}));
   ensureBuyer(buyer);
   syncGameCharges();
   if(g.entries.length===maxSpots)g.status='READY';
@@ -713,7 +718,7 @@ function assignBingoSpots(){
   const avail=getBingoBalls().filter(x=>!used.has(x));
   if(qty<1){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert('Enter how many Bingo spots they want.');}
   if(qty>avail.length){bingoAssignLocked=false;if(assignBtn)assignBtn.disabled=false;return alert(`Only ${avail.length} Bingo ball(s) are left.`);}
-  const ballPrice=Math.max(1,Math.min(25,Number(g.price||1))); shuffle(avail).slice(0,qty).forEach(ball=>g.entries.push({buyer,ball,price:ballPrice}));
+  const ballPrice=Math.max(1,Math.min(25,Number(g.price||1))); shuffle(avail).slice(0,qty).forEach(ball=>g.entries.push({buyer,ball,price:ballPrice,liveId:data.currentLive?.id||null}));
   ensureBuyer(buyer);
   syncGameCharges();
   if(g.entries.length===75)g.status='READY';
@@ -724,10 +729,11 @@ function assignBingoSpots(){
 function markWheelReady(){const g=currentWheelGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
 function markBingoReady(){const g=currentBingoGame();if(g.status!=='COMPLETED'){g.status='READY';save();}}
 function toggleOtherSeller(kind){const s=document.getElementById(kind+'PrizeSeller'),o=document.getElementById(kind+'PrizeSellerOther');if(o)o.style.display=s&&s.value==='Other'?'block':'none'}
-function chosenPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller');if(!s||s.value!=='Other')return s?s.value:'Melinda';return (document.getElementById(kind+'PrizeSellerOther')?.value||'').trim()||'Other'}
-function clearPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller'),o=document.getElementById(kind+'PrizeSellerOther');if(s)s.value='Melinda';if(o){o.value='';o.style.display='none'}}
+function chosenPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller');if(!s||s.value!=='Other')return s?s.value:'';return (document.getElementById(kind+'PrizeSellerOther')?.value||'').trim()}
+function clearPrizeSeller(kind){const s=document.getElementById(kind+'PrizeSeller'),o=document.getElementById(kind+'PrizeSellerOther');if(s)s.value=kind==='wheel'?'':'Melinda';if(o){o.value='';o.style.display='none'}}
 function addWheelWinner(){
   const g=currentWheelGame(),spot=parseInt(wheelWinningSpot.value,10);
+  if(!chosenPrizeSeller('wheel'))return alert('Choose the seller of the prize before adding this Wheel winner.');
   const maxSpots=Math.max(1,Math.min(25,Number(g.spotCount||14))); if(!spot||spot<1||spot>maxSpots)return alert(`Enter a winning spot from 1 to ${maxSpots}.`);
   const entry=g.entries.find(x=>x.spot===spot);
   if(!entry)return alert(`Spot ${spot} was not assigned in this game.`);
@@ -750,6 +756,7 @@ function updateWheelPrize(i){
   const g=currentWheelGame(); const v=prompt('Prize chosen:',g.winners[i].prize||'');
   if(v!==null){g.winners[i].prize=v;save();}
 }
+function updateWheelSeller(i){const g=currentWheelGame(),w=g.winners[i];if(!w)return;const v=prompt('Prize seller for this Wheel winner (Melinda, Lexi, Sherry, Mama, or another name):',w.prizeSeller||'');if(v===null)return;const seller=v.trim();if(!seller)return alert('Enter a prize seller.');w.prizeSeller=seller;save()}
 function updateBingoPrize(i){
   const g=currentBingoGame(); const v=prompt('Prize chosen:',g.winners[i].prize||'');
   if(v!==null){g.winners[i].prize=v;save();}
@@ -761,21 +768,19 @@ function removeBingoWinner(i){const g=currentBingoGame();if(confirm('Remove this
 function removeWheelSpot(i){const g=currentWheelGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';syncGameCharges();save();}
 function removeBingoSpot(i){const g=currentBingoGame();if(g.status==='COMPLETED')return alert('Completed game. Remove winner(s) first if you need to edit it.');g.entries.splice(i,1);g.status='FILLING';syncGameCharges();save();}
 function gameSellerTotals(){
-  const totals={Melinda:0,Lexi:0,Sherry:0,Mama:0};
-  const add=(games,defaultPrice)=> (games||[]).forEach(g=>{
-    const collected=(g.entries||[]).reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??defaultPrice)),0);
-    const seller=g.gameSeller||'Melinda'; if(totals[seller]===undefined)totals[seller]=0; totals[seller]+=collected;
-  });
-  add(data.wheelGames,5); add(data.bingoGames,1); return totals;
+  const totals=wheelSellerTotals();
+  (data.bingoGames||[]).forEach(g=>{const seller=g.gameSeller||'Melinda';totals[seller]=(totals[seller]||0)+(g.entries||[]).reduce((a,e)=>a+Number(e.price??g.price??1),0)});
+  return totals;
 }
 function wheelSellerTotals(){
   const totals={Melinda:0,Lexi:0,Sherry:0,Mama:0};
-  (data.wheelGames||[]).forEach(g=>{const collected=(g.entries||[]).reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0);const seller=g.gameSeller||'Melinda';if(totals[seller]===undefined)totals[seller]=0;totals[seller]+=collected;});
+  (data.wheelGames||[]).forEach(g=>{const collected=(g.entries||[]).reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0);const winners=(g.winners||[]).filter(w=>w.prizeSeller);if(!winners.length)return;const share=collected/winners.length;winners.forEach(w=>{if(totals[w.prizeSeller]===undefined)totals[w.prizeSeller]=0;totals[w.prizeSeller]+=share});});
   return totals;
 }
 function renderSpinSellerTotals(){
   const t=wheelSellerTotals();
   ['Melinda','Lexi','Sherry','Mama'].forEach(n=>{const el=document.getElementById('spin'+n);if(el)el.textContent=money(t[n]||0);});
+  const other=document.getElementById('spinOtherSellers');if(other)other.innerHTML=Object.entries(t).filter(([n,v])=>!['Melinda','Lexi','Sherry','Mama'].includes(n)&&v).map(([n,v])=>`${esc(n)}: ${money(v)}`).join(' • ');
 }
 function renderGames(){
   fillGameBuyerDropdowns();
@@ -815,10 +820,10 @@ function renderGames(){
   if(wg&&document.getElementById('wheelList')){
     const sorted=[...wg.entries].sort((a,b)=>a.spot-b.spot);
     const wheelSold=wg.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??wg.price??5)),0);
-    const wheelMax=Number(wg.spotCount||14); wheelStatus.innerHTML=`<b>Wheel #${wg.id} — ${wg.status}</b><br>${wg.entries.length}/${wheelMax} spots • ${wheelMax-wg.entries.length} left • ${money(wheelSold)} sold • Seller: ${esc(wg.gameSeller||'Melinda')}<br><small>Started ${fmtDT(wg.startedAt)}${wg.finishedAt?` • Finished ${fmtDT(wg.finishedAt)}`:''}</small>`;
+    const wheelMax=Number(wg.spotCount||14); wheelStatus.innerHTML=`<b>Wheel #${wg.id} — ${wg.status}</b><br>${wg.entries.length}/${wheelMax} spots • ${wheelMax-wg.entries.length} left • ${money(wheelSold)} sold • Proceeds: ${(wg.winners||[]).length?'winning prize seller(s)':'pending winner/prize seller'}<br><small>Started ${fmtDT(wg.startedAt)}${wg.finishedAt?` • Finished ${fmtDT(wg.finishedAt)}`:''}</small>`;
     wheelList.innerHTML=sorted.length?sorted.map(x=>{const i=wg.entries.indexOf(x);return `<div class="entry"><b>${esc(x.buyer)}</b><span>Spot ${x.spot}</span><span>${x.free?'FREE':money(x.price??wg.price??5)}</span><button class="danger" style="padding:5px" onclick="removeWheelSpot(${i})">X</button></div>`}).join(''):'<div class="empty">No spots assigned yet.</div>';
-    wheelWinners.innerHTML=wg.winners.length?wg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>Spot ${w.spot}</span><span>${w.prize?esc(w.prize):'Prize not entered'} • Seller: ${esc(w.prizeSeller||'Melinda')} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateWheelPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="toggleWheelPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeWheelWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
-    wheelQueue.innerHTML='<h3 style="margin-top:16px">Wheel Queue</h3>'+data.wheelGames.map(g=>{const wins=(g.winners||[]).map(w=>`🏆 ${esc(w.buyer)} — ${esc(w.prize||'Prize not entered')}`).join('<br>');return `<div class="entry" style="grid-template-columns:1fr 1fr"><b>Wheel #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/${g.spotCount||14} • ${money(g.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0))}</span><span>Seller: ${esc(g.gameSeller||'Melinda')}</span>${wins?`<span style="grid-column:1/-1">${wins}</span>`:''}</div>`}).join('');
+    wheelWinners.innerHTML=wg.winners.length?wg.winners.map((w,i)=>`<div class="entry"><b>#${w.place} ${esc(w.buyer)}</b><span>Spot ${w.spot}</span><span>${w.prize?esc(w.prize):'Prize not entered'} • Seller: ${esc(w.prizeSeller||'UNASSIGNED')} ${w.prizeGiven?'✓ Given':''}</span><button class="light" style="padding:5px" onclick="updateWheelPrize(${i})">Prize</button><button class="light" style="padding:5px" onclick="updateWheelSeller(${i})">Seller</button><button class="light" style="padding:5px" onclick="toggleWheelPrizeGiven(${i})">✓</button><button class="danger" style="padding:5px" onclick="removeWheelWinner(${i})">X</button></div>`).join(''):'<div class="empty">No winners entered yet.</div>';
+    wheelQueue.innerHTML='<h3 style="margin-top:16px">Wheel Queue</h3>'+data.wheelGames.map(g=>{const wins=(g.winners||[]).map(w=>`🏆 ${esc(w.buyer)} — ${esc(w.prize||'Prize not entered')} • ${esc(w.prizeSeller||'Seller missing')}`).join('<br>');return `<div class="entry" style="grid-template-columns:1fr 1fr"><b>Wheel #${g.id}</b><span>${g.status}</span><span>${g.entries.length}/${g.spotCount||14} • ${money(g.entries.reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0))}</span><span>${wins?'Prize seller(s) below':'Proceeds pending winner'}</span>${wins?`<span style="grid-column:1/-1">${wins}</span>`:''}</div>`}).join('');
   }
   if(bg&&document.getElementById('bingoList')){
     const bingoSold=bg.entries.reduce((a,e)=>a+Number(e.price??bg.price??1),0); bingoStatus.innerHTML=`<b>Bingo #${bg.id} — ${bg.status}</b><br>${bg.entries.length}/75 balls • ${75-bg.entries.length} left • ${money(bingoSold)} sold • Seller: ${esc(bg.gameSeller||'Melinda')}<br><small>Started ${fmtDT(bg.startedAt)}${bg.finishedAt?` • Finished ${fmtDT(bg.finishedAt)}`:''}</small>`;
@@ -850,7 +855,7 @@ function renderPastLives(){
     (l.wheelGames||[]).forEach(g=>{const ws=g.winners||[];if(!ws.length)return;const collected=(g.entries||[]).reduce((a,e)=>a+Number(e.free?0:(e.price??g.price??5)),0),share=collected/ws.length;ws.forEach(w=>{const ss=w.prizeSeller||'Melinda';if(spin[ss]===undefined)spin[ss]=0;spin[ss]+=share;});});
     const buyerRows=buyers.filter(([,b])=>(b.items||[]).length||Number(b.credit||0)>0).sort((a,b)=>a[0].localeCompare(b[0])).map(([n,b])=>`<div class="item"><span><b>${esc(n)}</b> • purchases ${money(archivedBuyerGross(b))}${Number(b.credit||0)>0?` • credit −${money(Math.min(archivedBuyerGross(b),Number(b.credit||0)))}`:''}</span><b>Due ${money(archivedBuyerDue(b))}</b></div>`).join('')||'<div class="empty">No buyer purchases.</div>';
     const winners=[...(l.wheelGames||[]).flatMap(g=>(g.winners||[]).map(w=>`Wheel #${g.id}: ${w.buyer} — ${w.prize||'Prize not entered'} — ${w.prizeSeller||'Melinda'}`)),...(l.bingoGames||[]).flatMap(g=>(g.winners||[]).map(w=>`Bingo #${g.id}: ${w.buyer} (${w.ball}) — ${w.prize||'Prize not entered'} — ${w.prizeSeller||'Melinda'}`))];
-    return `<details class="archive-card"><summary>${new Date(l.startedAt).toLocaleDateString()} • ${new Date(l.startedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}–${l.endedAt?new Date(l.endedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'—'} • ${money(gross)}</summary><div class="archive-section"><b>Sale:</b> ${money(gross)} purchases • ${money(due)} due after credits<br><b>Games:</b> Wheel ${money(wt)} • Bingo ${money(bt)}<br><b>Regular seller totals:</b> Melinda ${money(seller.Melinda)} • Lexi ${money(seller.Lexi)} • Sherry ${money(seller.Sherry)} • Mama ${money(seller.Mama)}<br><b>Spin seller totals:</b> Melinda ${money(spin.Melinda)} • Lexi ${money(spin.Lexi)} • Sherry ${money(spin.Sherry)} • Mama ${money(spin.Mama)}</div><div class="archive-section"><b>Holiday tickets</b>${Object.entries(l.holidayTickets||{}).filter(([,q])=>q>0).map(([n,q])=>`<div class="item">${esc(n)}: ${q}</div>`).join('')||'<div class="empty">No holiday tickets recorded.</div>'}</div><div class="archive-section"><b>Buyers</b>${buyerRows}</div><div class="archive-section"><b>Winners</b>${winners.length?winners.map(x=>`<div class="item">${esc(x)}</div>`).join(''):'<div class="empty">No winners recorded.</div>'}</div></details>`;
+    return `<details class="archive-card"><summary>${new Date(l.startedAt).toLocaleDateString()} • ${new Date(l.startedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}–${l.endedAt?new Date(l.endedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'—'} • ${money(gross)}</summary><div class="archive-section"><b>Sale:</b> ${money(gross)} purchases • ${money(due)} due after credits<br><b>Games:</b> Wheel ${money(wt)} • Bingo ${money(bt)}<br><b>Regular seller totals:</b> Melinda ${money(seller.Melinda)} • Lexi ${money(seller.Lexi)} • Sherry ${money(seller.Sherry)} • Mama ${money(seller.Mama)}<br><b>Spin seller totals:</b> Melinda ${money(spin.Melinda)} • Lexi ${money(spin.Lexi)} • Sherry ${money(spin.Sherry)} • Mama ${money(spin.Mama)}</div><div class="archive-section"><b>Drawing tickets</b>${Object.entries(l.holidayTickets||{}).filter(([,q])=>q>0).map(([n,q])=>`<div class="item">${esc(n)}: ${q}</div>`).join('')||'<div class="empty">No drawing tickets recorded.</div>'}</div><div class="archive-section"><b>Buyers</b>${buyerRows}</div><div class="archive-section"><b>Winners</b>${winners.length?winners.map(x=>`<div class="item">${esc(x)}</div>`).join(''):'<div class="empty">No winners recorded.</div>'}</div></details>`;
   }).join('');
 }
 function exportCSV(){
